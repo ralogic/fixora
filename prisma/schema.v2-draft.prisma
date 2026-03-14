@@ -1,0 +1,418 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  TECHNICIAN
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  OPS_MANAGER
+  SUPPORT_AGENT
+  FINANCE_ANALYST
+}
+
+enum OrderStatus {
+  PENDING
+  PENDING_ASSIGNMENT
+  ASSIGNED
+  ON_THE_WAY
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  REQUIRES_ACTION
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CHARGEBACK
+}
+
+enum DisputeStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  REJECTED
+}
+
+enum PayoutStatus {
+  QUEUED
+  PROCESSING
+  PAID
+  FAILED
+  ADJUSTED
+}
+
+model User {
+  id                   String           @id @default(cuid())
+  role                 UserRole
+  name                 String
+  phone                String           @unique
+  email                String?          @unique
+  passwordHash         String?
+  authProvider         String?
+  authProviderId       String?
+  cityId               String?
+  city                 City?            @relation(fields: [cityId], references: [id])
+  technicianProfile    Technician?
+  refreshTokens        RefreshToken[]
+  customerOrders       Order[]          @relation("CustomerOrders")
+  ratingsByCustomer    Rating[]         @relation("CustomerRatings")
+  adminMembership      AdminProfile?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([role, cityId])
+  @@index([authProvider, authProviderId])
+}
+
+model AdminProfile {
+  id                   String           @id
+  user                 User             @relation(fields: [id], references: [id])
+  adminRole            AdminRole
+  mfaEnabled           Boolean          @default(false)
+  isActive             Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model RefreshToken {
+  id                   String           @id @default(cuid())
+  userId               String
+  tokenHash            String           @unique
+  deviceId             String?
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  user                 User             @relation(fields: [userId], references: [id])
+  createdAt            DateTime         @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model Technician {
+  id                   String           @id
+  user                 User             @relation(fields: [id], references: [id])
+  verificationStatus   VerificationStatus @default(PENDING)
+  isOnline             Boolean          @default(false)
+  serviceRadiusKm      Float            @default(6)
+  currentLat           Decimal?         @db.Decimal(10, 7)
+  currentLng           Decimal?         @db.Decimal(10, 7)
+  lastLocationAt       DateTime?
+  avgRating            Float            @default(5)
+  completedJobs        Int              @default(0)
+  acceptanceRate       Float            @default(1)
+  cancellationRate     Float            @default(0)
+  fraudRiskScore       Float            @default(0)
+  serviceMappings      TechnicianService[]
+  cityMappings         TechnicianCityMap[]
+  orders               Order[]          @relation("TechnicianOrders")
+  ratingsByTechnician  Rating[]         @relation("TechnicianRatings")
+  payouts              TechnicianPayout[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([isOnline, verificationStatus])
+  @@index([lastLocationAt])
+}
+
+model TechnicianCityMap {
+  id                   String           @id @default(cuid())
+  technicianId         String
+  cityId               String
+  isPrimary            Boolean          @default(false)
+  isActive             Boolean          @default(true)
+  technician           Technician       @relation(fields: [technicianId], references: [id])
+  city                 City             @relation(fields: [cityId], references: [id])
+
+  @@unique([technicianId, cityId])
+  @@index([cityId, isActive])
+}
+
+model Service {
+  id                   String           @id @default(cuid())
+  category             String
+  name                 String
+  description          String
+  basePriceInPaise     Int
+  estimatedDurationMin Int
+  isActive             Boolean          @default(true)
+  technicianMap        TechnicianService[]
+  cityOverrides        ServiceCityOverride[]
+  orders               Order[]
+
+  @@index([category, isActive])
+}
+
+model ServiceCityOverride {
+  id                   String           @id @default(cuid())
+  serviceId            String
+  cityId               String
+  overridePriceInPaise Int
+  estimatedDurationMin Int
+  isActive             Boolean          @default(true)
+  service              Service          @relation(fields: [serviceId], references: [id])
+  city                 City             @relation(fields: [cityId], references: [id])
+
+  @@unique([serviceId, cityId])
+}
+
+model TechnicianService {
+  id                   String           @id @default(cuid())
+  technicianId         String
+  serviceId            String
+  technician           Technician       @relation(fields: [technicianId], references: [id])
+  service              Service          @relation(fields: [serviceId], references: [id])
+
+  @@unique([technicianId, serviceId])
+}
+
+model City {
+  id                   String           @id @default(cuid())
+  name                 String
+  slug                 String           @unique
+  isActive             Boolean          @default(true)
+  users                User[]
+  zones                ServiceZone[]
+  pricingRules         PricingRule[]
+  surgeRules           SurgeRule[]
+  orders               Order[]
+  serviceOverrides     ServiceCityOverride[]
+  technicianMap        TechnicianCityMap[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model ServiceZone {
+  id                   String           @id @default(cuid())
+  cityId               String
+  name                 String
+  polygonJson          Json
+  isActive             Boolean          @default(true)
+  city                 City             @relation(fields: [cityId], references: [id])
+  orders               Order[]
+  pricingRules         PricingRule[]
+
+  @@index([cityId, isActive])
+}
+
+model PricingRule {
+  id                   String           @id @default(cuid())
+  cityId               String
+  zoneId               String?
+  serviceCategory      String
+  baseMultiplier       Float            @default(1)
+  rushMultiplier       Float            @default(1)
+  minTicketInPaise     Int?
+  city                 City             @relation(fields: [cityId], references: [id])
+  zone                 ServiceZone?     @relation(fields: [zoneId], references: [id])
+
+  @@index([cityId, serviceCategory])
+  @@index([zoneId])
+}
+
+model SurgeRule {
+  id                   String           @id @default(cuid())
+  cityId               String
+  zoneId               String?
+  name                 String
+  multiplier           Float
+  startAt              DateTime
+  endAt                DateTime
+  isActive             Boolean          @default(true)
+  city                 City             @relation(fields: [cityId], references: [id])
+
+  @@index([cityId, isActive, startAt, endAt])
+}
+
+model Order {
+  id                   String           @id @default(cuid())
+  customerId           String
+  technicianId         String?
+  serviceId            String
+  cityId               String
+  zoneId               String?
+  status               OrderStatus      @default(PENDING)
+  issueType            String
+  issueNotes           String?
+  mediaUrlsJson        Json?
+  scheduledAt          DateTime?
+  estimatedEtaMinutes  Int?
+  estimatedAmountPaise Int
+  finalAmountPaise     Int?
+  paymentStatus        PaymentStatus    @default(PENDING)
+  cancellationReason   String?
+  customer             User             @relation("CustomerOrders", fields: [customerId], references: [id])
+  technician           Technician?      @relation("TechnicianOrders", fields: [technicianId], references: [id])
+  service              Service          @relation(fields: [serviceId], references: [id])
+  city                 City             @relation(fields: [cityId], references: [id])
+  zone                 ServiceZone?     @relation(fields: [zoneId], references: [id])
+  location             Location?
+  payment              Payment?
+  invoice              Invoice?
+  rating               Rating?
+  dispute              Dispute?
+  events               OrderEvent[]
+  idempotencyKeys      IdempotencyKey[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  assignedAt           DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+
+  @@index([customerId, createdAt])
+  @@index([technicianId, status])
+  @@index([status, cityId])
+  @@index([createdAt])
+}
+
+model Location {
+  id                   String           @id @default(cuid())
+  orderId              String           @unique
+  addressLine          String
+  landmark             String?
+  floor                String?
+  lat                  Decimal          @db.Decimal(10, 7)
+  lng                  Decimal          @db.Decimal(10, 7)
+  geohash              String?
+  cityId               String
+  zoneId               String?
+  order                Order            @relation(fields: [orderId], references: [id])
+
+  @@index([cityId, zoneId])
+  @@index([lat, lng])
+}
+
+model Payment {
+  id                   String           @id @default(cuid())
+  orderId              String           @unique
+  stripePaymentIntentId String          @unique
+  amountPaise          Int
+  currency             String           @default("inr")
+  status               PaymentStatus    @default(PENDING)
+  refundAmountPaise    Int              @default(0)
+  paidAt               DateTime?
+  order                Order            @relation(fields: [orderId], references: [id])
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([status])
+}
+
+model Invoice {
+  id                   String           @id @default(cuid())
+  orderId              String           @unique
+  invoiceNumber        String           @unique
+  subtotalPaise        Int
+  taxPaise             Int
+  totalPaise           Int
+  pdfUrl               String?
+  generatedAt          DateTime         @default(now())
+  order                Order            @relation(fields: [orderId], references: [id])
+
+  @@index([generatedAt])
+}
+
+model Rating {
+  id                   String           @id @default(cuid())
+  orderId              String           @unique
+  customerId           String
+  technicianId         String
+  score                Int
+  comment              String?
+  order                Order            @relation(fields: [orderId], references: [id])
+  customer             User             @relation("CustomerRatings", fields: [customerId], references: [id])
+  technician           Technician       @relation("TechnicianRatings", fields: [technicianId], references: [id])
+  createdAt            DateTime         @default(now())
+
+  @@index([technicianId, createdAt])
+  @@index([score])
+}
+
+model Dispute {
+  id                   String           @id @default(cuid())
+  orderId              String           @unique
+  openedByUserId       String
+  reason               String
+  status               DisputeStatus    @default(OPEN)
+  resolutionNotes      String?
+  order                Order            @relation(fields: [orderId], references: [id])
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model TechnicianPayout {
+  id                   String           @id @default(cuid())
+  technicianId         String
+  orderId              String
+  amountPaise          Int
+  status               PayoutStatus     @default(QUEUED)
+  adjustmentPaise      Int              @default(0)
+  scheduledAt          DateTime
+  paidAt               DateTime?
+  technician           Technician       @relation(fields: [technicianId], references: [id])
+  createdAt            DateTime         @default(now())
+
+  @@index([technicianId, status, scheduledAt])
+}
+
+model OrderEvent {
+  id                   String           @id @default(cuid())
+  orderId              String
+  type                 String
+  correlationId        String?
+  payloadJson          Json?
+  createdAt            DateTime         @default(now())
+  order                Order            @relation(fields: [orderId], references: [id])
+
+  @@index([orderId, createdAt])
+  @@index([type, createdAt])
+}
+
+model IdempotencyKey {
+  id                   String           @id @default(cuid())
+  orderId              String?
+  key                  String           @unique
+  endpoint             String
+  requestHash          String
+  responseJson         Json?
+  expiresAt            DateTime
+  order                Order?           @relation(fields: [orderId], references: [id])
+  createdAt            DateTime         @default(now())
+
+  @@index([endpoint, expiresAt])
+}
+
+model AdminAuditLog {
+  id                   String           @id @default(cuid())
+  actorUserId          String
+  action               String
+  targetType           String
+  targetId             String
+  metadataJson         Json?
+  createdAt            DateTime         @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId])
+}
