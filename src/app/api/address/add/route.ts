@@ -40,7 +40,11 @@ export async function POST(request: NextRequest) {
       zoneId?: string;
     };
 
-    if (!body.addressLine || typeof body.lat !== "number" || typeof body.lng !== "number") {
+    const addressLine = typeof body.addressLine === "string" ? body.addressLine.trim() : "";
+    const lat = typeof body.lat === "number" ? body.lat : null;
+    const lng = typeof body.lng === "number" ? body.lng : null;
+
+    if (!addressLine || lat === null || lng === null) {
       return fail("addressLine, lat, lng are required", 422);
     }
 
@@ -55,7 +59,7 @@ export async function POST(request: NextRequest) {
       return fail("City not found", 404);
     }
 
-    const zoneResolution = await resolveZoneByCoordinates(city.id, body.lat, body.lng);
+    const zoneResolution = await resolveZoneByCoordinates(city.id, lat, lng);
     const label = (body.label ?? "HOME").toUpperCase();
     const mappedLabel = label === "OFFICE" || label === "OTHER" ? label : "HOME";
 
@@ -66,11 +70,11 @@ export async function POST(request: NextRequest) {
           cityId: city.id,
           zoneId: body.zoneId ?? zoneResolution.zoneId,
           label: mappedLabel,
-          addressLine: body.addressLine,
+          addressLine,
           landmark: body.landmark,
           floor: body.floor,
-          lat: body.lat,
-          lng: body.lng,
+          lat,
+          lng,
         },
         include: {
           city: {
