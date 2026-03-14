@@ -146,7 +146,19 @@ export function BookingFlow() {
         <Card className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold">Address selection</h3>
-            <Button variant="ghost" onClick={() => setShowLocationSelector(true)}>Add new</Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (!user) {
+                  setShowLogin(true);
+                  return;
+                }
+
+                setShowLocationSelector(true);
+              }}
+            >
+              Add new
+            </Button>
           </div>
           <SavedAddressesList
             addresses={addresses}
@@ -213,10 +225,24 @@ export function BookingFlow() {
         </Button>
       </div>
 
-      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} onSuccess={refresh} />
+      <LoginModal
+        open={showLogin}
+        onClose={() => setShowLogin(false)}
+        onSuccess={() => {
+          refresh();
+          setShowLogin(false);
+          if (!selectedAddress) {
+            setShowLocationSelector(true);
+          }
+        }}
+      />
       <LocationSelector
         open={showLocationSelector}
         onClose={() => setShowLocationSelector(false)}
+        onAuthRequired={() => {
+          setShowLocationSelector(false);
+          setShowLogin(true);
+        }}
         onSaved={(address) => {
           setSelectedAddress(address);
           refresh();

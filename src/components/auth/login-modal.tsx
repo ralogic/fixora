@@ -58,7 +58,7 @@ export function LoginModal({ open, onClose, onSuccess }: Props) {
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-[80] bg-black/45"
+          className="premium-overlay fixed inset-0 z-[80]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -68,7 +68,7 @@ export function LoginModal({ open, onClose, onSuccess }: Props) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 48, opacity: 0 }}
             transition={{ type: "spring", stiffness: 240, damping: 26 }}
-            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-5 shadow-2xl md:left-1/2 md:top-1/2 md:h-auto md:w-[440px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl"
+            className="premium-sheet absolute bottom-0 left-0 right-0 rounded-t-3xl p-5 md:left-1/2 md:top-1/2 md:h-auto md:w-[440px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl"
           >
             <h3 className="text-xl font-bold text-zinc-900">Login to continue</h3>
             <p className="mt-1 text-sm text-zinc-500">Phone OTP login for secure bookings.</p>

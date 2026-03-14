@@ -13,9 +13,10 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onSaved: (address: SavedAddress) => void;
+  onAuthRequired?: () => void;
 };
 
-export function LocationSelector({ open, onClose, onSaved }: Props) {
+export function LocationSelector({ open, onClose, onSaved, onAuthRequired }: Props) {
   const [lat, setLat] = useState(26.8467);
   const [lng, setLng] = useState(75.8067);
   const [addressLine, setAddressLine] = useState("");
@@ -83,7 +84,14 @@ export function LocationSelector({ open, onClose, onSaved }: Props) {
       onSaved(result.address);
       onClose();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to save address");
+      const message = requestError instanceof Error ? requestError.message : "Unable to save address";
+      if (message.toLowerCase().includes("unauthorized")) {
+        setError("Please login to save this address.");
+        onAuthRequired?.();
+        return;
+      }
+
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -92,12 +100,12 @@ export function LocationSelector({ open, onClose, onSaved }: Props) {
   return (
     <AnimatePresence>
       {open ? (
-        <motion.div className="fixed inset-0 z-[85] bg-black/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <motion.div className="premium-overlay fixed inset-0 z-[85]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <motion.div
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 40, opacity: 0 }}
-            className="absolute inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-3xl bg-white p-5 md:inset-10 md:rounded-3xl"
+            className="premium-sheet absolute inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-3xl p-5 md:inset-10 md:rounded-3xl"
           >
             <h2 className="text-2xl font-bold text-zinc-900">Set your service location</h2>
             <p className="mt-1 text-sm text-zinc-500">Detect location, search address, or set exact pin.</p>

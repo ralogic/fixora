@@ -1,8 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  ArrowLeftRight,
   BellRing,
   CheckCircle2,
   DollarSign,
@@ -28,6 +30,37 @@ type IncomingJob = {
 
 const WEEK_EARNINGS = [320, 480, 550, 290, 640, 720, 410];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const TECHNICIAN_ONBOARDING_KEY = "fixora_technician_onboarded";
+
+function subscribeTechnicianOnboarding(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (!event.key || event.key === TECHNICIAN_ONBOARDING_KEY) {
+      onStoreChange();
+    }
+  };
+
+  const handleCustom = () => onStoreChange();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener("technician-onboarding-change", handleCustom);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("technician-onboarding-change", handleCustom);
+  };
+}
+
+function getTechnicianOnboardingSnapshot() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(TECHNICIAN_ONBOARDING_KEY) === "1";
+}
 
 function EarningsChart() {
   const max = Math.max(...WEEK_EARNINGS);
@@ -72,6 +105,11 @@ function CountdownRing({ seconds, total }: { seconds: number; total: number }) {
 }
 
 export default function TechnicianDashboard() {
+  const hasSeenOnboarding = useSyncExternalStore(
+    subscribeTechnicianOnboarding,
+    getTechnicianOnboardingSnapshot,
+    () => false,
+  );
   const [isOnline, setIsOnline] = useState(false);
   const [incomingJob, setIncomingJob] = useState<IncomingJob | null>(null);
   const [countdown, setCountdown] = useState(20);
@@ -144,18 +182,74 @@ export default function TechnicianDashboard() {
     }
   }
 
+  function completeOnboarding() {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(TECHNICIAN_ONBOARDING_KEY, "1");
+      window.dispatchEvent(new Event("technician-onboarding-change"));
+    }
+  }
+
+  if (!hasSeenOnboarding) {
+    return (
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(8,145,178,0.22),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(249,115,22,0.2),transparent_40%),#09090b] py-10 text-white">
+        <div className="mx-auto max-w-3xl px-4">
+          <div className="rounded-3xl border border-cyan-900/40 bg-zinc-900/80 p-6 backdrop-blur md:p-9">
+            <p className="inline-flex rounded-full border border-cyan-700/50 bg-cyan-900/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-cyan-300">
+              Technician onboarding
+            </p>
+            <h1 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">Welcome to Fixora Pro</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-300 md:text-base">
+              Before you start taking jobs, review the workflow: go online, accept nearby requests, update status at each milestone, and complete with customer rating.
+            </p>
+
+            <div className="mt-7 grid gap-3 md:grid-cols-3">
+              {[
+                { title: "Go Online", body: "Turn on shift status to start receiving nearby job offers.", icon: "01" },
+                { title: "Accept & Navigate", body: "Accept job cards quickly and move to the customer location.", icon: "02" },
+                { title: "Finish & Earn", body: "Complete service, collect payment, and increase your rating.", icon: "03" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                  <p className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/15 text-xs font-black text-cyan-300">{item.icon}</p>
+                  <p className="mt-3 font-semibold text-white">{item.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-zinc-400">{item.body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button onClick={completeOnboarding} className="h-11 px-5">
+                Continue to technician dashboard
+              </Button>
+              <Link href="/customer" className="inline-flex h-11 items-center rounded-xl border border-zinc-700 px-5 text-sm font-semibold text-zinc-300 hover:bg-zinc-800/60">
+                Open customer app
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-950 py-8 text-white">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(8,145,178,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(14,116,144,0.2),transparent_35%),#09090b] py-8 text-white">
       <div className="mx-auto max-w-md px-4 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-zinc-400">Welcome back</p>
+            <p className="inline-flex items-center rounded-full border border-cyan-700/50 bg-cyan-900/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan-300">
+              Technician portal
+            </p>
+            <p className="mt-2 text-xs text-zinc-400">Welcome back</p>
             <h1 className="text-xl font-extrabold">Rohit Sharma</h1>
           </div>
-          <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 hover:text-white">
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href="/customer" className="flex h-9 items-center gap-1 rounded-xl border border-cyan-800 bg-zinc-900 px-2.5 text-[11px] font-semibold text-cyan-300 hover:text-cyan-200">
+              <ArrowLeftRight className="h-3.5 w-3.5" /> Customer side
+            </Link>
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 hover:text-white">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Online toggle */}

@@ -48,7 +48,6 @@ export const useBookingStore = create<BookingStore>()(
     {
       name: "fixora-booking-draft",
       partialize: (state) => ({
-        step: state.step,
         draft: state.draft,
       }),
     },
