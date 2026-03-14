@@ -1,25 +1,130 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { BriefcaseBusiness, Home, MapPin, UserRound, Wrench } from "lucide-react";
-import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { BriefcaseBusiness, Home, MapPin, Menu, UserRound, Wrench, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { LoginModal } from "@/components/auth/login-modal";
-import { UserProfileMenu } from "@/components/auth/user-profile-menu";
 import { LocationSelector } from "@/components/location/location-selector";
 import { SavedAddressesList } from "@/components/location/saved-addresses-list";
 import { useCustomerSession } from "@/hooks/use-customer-session";
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, addresses, selectedAddress, setSelectedAddress, loading, refresh } = useCustomerSession();
-  const [showLogin, setShowLogin] = useState(false);
+  const { addresses, selectedAddress, setSelectedAddress, loading, refresh } = useCustomerSession();
   const [showLocationSheet, setShowLocationSheet] = useState(false);
   const [showLocationSelector, setShowLocationSelector] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const isLandingPage = pathname === "/";
   const isTechnicianPortal = pathname.startsWith("/technician");
   const showCustomerControls = !isTechnicianPortal;
+
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  if (isLandingPage) {
+    return (
+      <>
+        <motion.header
+          initial={{ y: -18, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.45 }}
+          className={`sticky top-0 z-50 border-b border-white/50 bg-white/85 backdrop-blur transition-all ${
+            isScrolled ? "h-14 shadow-md shadow-blue-900/8" : "h-16"
+          }`}
+        >
+          <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-3 px-4 md:px-8">
+            <Link href="/" className="flex items-center gap-2 text-slate-900">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white">
+                <Wrench className="h-4 w-4" />
+              </span>
+              <span className="text-lg font-bold tracking-tight">Fixora</span>
+            </Link>
+
+            <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-600 md:flex">
+              {[
+                ["Services", "#services"],
+                ["How it works", "#how-it-works"],
+                ["Technicians", "#technicians"],
+                ["Reviews", "#reviews"],
+              ].map(([label, href]) => (
+                <a key={label} href={href} className="transition hover:text-slate-900">
+                  {label}
+                </a>
+              ))}
+            </nav>
+
+            <div className="hidden items-center gap-2 md:flex">
+              <Link href="/technician">
+                <Button variant="ghost" className="h-10 px-4 text-sm">
+                  Become a Technician
+                </Button>
+              </Link>
+              <Link href="/join">
+                <Button variant="ghost" className="h-10 px-4 text-sm">
+                  Become a Technician
+                </Button>
+              </Link>
+              <Link href="/book">
+                <Button className="h-10 px-4 text-sm">Book a Technician</Button>
+              </Link>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 md:hidden"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </motion.header>
+
+        <AnimatePresence>
+          {mobileMenuOpen ? (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="sticky top-14 z-40 border-b border-slate-200 bg-white/95 px-4 py-4 shadow-lg shadow-slate-900/5 backdrop-blur md:hidden"
+            >
+              <div className="mx-auto flex w-full max-w-7xl flex-col gap-3">
+                {[
+                  ["Services", "#services"],
+                  ["How it works", "#how-it-works"],
+                  ["Technicians", "#technicians"],
+                  ["Reviews", "#reviews"],
+                ].map(([label, href]) => (
+                  <a
+                    key={label}
+                    href={href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700"
+                  >
+                    {label}
+                  </a>
+                ))}
+                <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="h-11 w-full">Book a Technician</Button>
+                                <Link href="/join" onClick={() => setMobileMenuOpen(false)}>
+                                  <Button variant="ghost" className="h-11 w-full border border-slate-200">Become a Technician</Button>
+                                </Link>
+                </Link>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </>
+    );
+  }
 
   return (
     <>
@@ -31,11 +136,11 @@ export function Navbar() {
       >
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 md:px-8">
           <Link href="/" className="flex items-center gap-2 text-zinc-900">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 text-white">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white">
               <Wrench className="h-4 w-4" />
             </span>
             <span className="text-lg font-bold tracking-tight">Fixora</span>
-            <span className={`hidden rounded-full px-2.5 py-1 text-[11px] font-semibold md:inline ${isTechnicianPortal ? "bg-cyan-100 text-cyan-700" : "bg-orange-100 text-orange-700"}`}>
+            <span className={`hidden rounded-full px-2.5 py-1 text-[11px] font-semibold md:inline ${isTechnicianPortal ? "bg-cyan-100 text-cyan-700" : "bg-blue-100 text-blue-700"}`}>
               {isTechnicianPortal ? "Technician portal" : "Customer app"}
             </span>
           </Link>
@@ -66,6 +171,12 @@ export function Navbar() {
                 <Link href="/book" className="hover:text-zinc-900">Book</Link>
                 <Link href="/account/orders" className="hover:text-zinc-900">Orders</Link>
                 <Link href="/track/demo-order" className="hover:text-zinc-900">Track</Link>
+                            <>
+                              <Link href="/customer" className="hover:text-zinc-900">Home</Link>
+                              <Link href="/book" className="hover:text-zinc-900">Book</Link>
+                              <Link href="/customer/dashboard" className="hover:text-zinc-900">Dashboard</Link>
+                              <Link href="/account/orders" className="hover:text-zinc-900">Orders</Link>
+                            </>
               </>
             ) : (
               <>
@@ -77,13 +188,9 @@ export function Navbar() {
 
           <div className="flex items-center gap-2">
             {showCustomerControls ? (
-              user ? (
-                <UserProfileMenu user={user} />
-              ) : (
-                <Button variant="ghost" className="h-10 px-4 text-xs md:text-sm" onClick={() => setShowLogin(true)}>
-                  Login
-                </Button>
-              )
+              <Button variant="ghost" className="h-10 px-4 text-xs md:text-sm" disabled>
+                Guest
+              </Button>
             ) : (
               <Link href="/customer">
                 <Button variant="ghost" className="h-10 px-3 text-xs md:text-sm">
@@ -129,10 +236,6 @@ export function Navbar() {
               />
               <Button
                 onClick={() => {
-                  if (!user) {
-                    setShowLogin(true);
-                    return;
-                  }
                   setShowLocationSheet(false);
                   setShowLocationSelector(true);
                 }}
@@ -156,19 +259,6 @@ export function Navbar() {
               setSelectedAddress(address);
               setShowLocationSelector(false);
               refresh();
-            }}
-          />
-
-          <LoginModal
-            open={showLogin}
-            onClose={() => setShowLogin(false)}
-            onSuccess={() => {
-              refresh();
-              setShowLogin(false);
-              if (!selectedAddress) {
-                setShowLocationSheet(false);
-                setShowLocationSelector(true);
-              }
             }}
           />
         </>

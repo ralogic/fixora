@@ -27,6 +27,25 @@ enum TechnicianVehicleType {
   NONE
 }
 
+enum WorkType {
+  HOME_SERVICE
+  SHOP
+  BOTH
+}
+
+enum DocumentType {
+  AADHAAR
+  PAN
+  PROFILE_PHOTO
+  CERTIFICATE
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum OrderStatus {
   PENDING
   PENDING_ASSIGNMENT
@@ -107,12 +126,55 @@ model Technician {
   vehicleType         TechnicianVehicleType @default(NONE)
   primaryCityId       String?
   primaryCity         City?                @relation(fields: [primaryCityId], references: [id])
+  // ── onboarding enrichment ──────────────────────────────────
+  bio                 String?
+  experienceYears     Int                  @default(0)
+  skillsJson          Json?
+  toolsAvailable      Boolean              @default(false)
+  workType            WorkType             @default(HOME_SERVICE)
+  profilePhotoUrl     String?
+  onboardingStep      Int                  @default(1)
+  onboardingComplete  Boolean              @default(false)
+  rejectionNote       String?
+  // ──────────────────────────────────────────────────────────
   serviceMappings     TechnicianService[]
   orders              Order[]              @relation("TechnicianOrders")
   ratings             Rating[]             @relation("TechnicianRatings")
+  documents           TechnicianDocument[]
+  bankDetails         TechnicianBankDetails?
 
   @@index([isOnline, primaryCityId])
   @@index([verificationStatus])
+  @@index([onboardingComplete, verificationStatus])
+}
+
+model TechnicianDocument {
+  id             String         @id @default(cuid())
+  technicianId   String
+  type           DocumentType
+  url            String
+  status         DocumentStatus @default(PENDING)
+  rejectionNote  String?
+  technician     Technician     @relation(fields: [technicianId], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([technicianId, type])
+  @@index([technicianId])
+  @@index([status])
+}
+
+model TechnicianBankDetails {
+  id             String     @id @default(cuid())
+  technicianId   String     @unique
+  accountName    String
+  bankName       String
+  accountNumber  String
+  ifscCode       String
+  upiId          String?
+  technician     Technician @relation(fields: [technicianId], references: [id])
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 }
 
 model Service {

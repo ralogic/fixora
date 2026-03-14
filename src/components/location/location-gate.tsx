@@ -5,13 +5,12 @@ import { MapPin, Navigation, Search } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useCustomerSession } from "@/hooks/use-customer-session";
-import { LoginModal } from "@/components/auth/login-modal";
 import { LocationSelector } from "@/components/location/location-selector";
 
 const ADDRESS_KEY = "fixora_selected_address";
 
 export function LocationGate() {
-  const { user, refresh, setSelectedAddress } = useCustomerSession();
+  const { refresh, setSelectedAddress } = useCustomerSession();
   const [open, setOpen] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -19,7 +18,6 @@ export function LocationGate() {
 
     return !window.localStorage.getItem(ADDRESS_KEY);
   });
-  const [showLogin, setShowLogin] = useState(false);
   const [showLocationSelector, setShowLocationSelector] = useState(false);
 
   return (
@@ -39,39 +37,21 @@ export function LocationGate() {
               <div className="mt-6 space-y-3">
                 <Button
                   className="h-12 w-full justify-start"
-                  onClick={() => {
-                    if (!user) {
-                      setShowLogin(true);
-                      return;
-                    }
-                    setShowLocationSelector(true);
-                  }}
+                  onClick={() => setShowLocationSelector(true)}
                 >
                   <Navigation className="mr-2 h-4 w-4" /> Detect my location
                 </Button>
                 <Button
                   variant="ghost"
                   className="h-12 w-full justify-start border border-zinc-200"
-                  onClick={() => {
-                    if (!user) {
-                      setShowLogin(true);
-                      return;
-                    }
-                    setShowLocationSelector(true);
-                  }}
+                  onClick={() => setShowLocationSelector(true)}
                 >
                   <Search className="mr-2 h-4 w-4" /> Search address
                 </Button>
                 <Button
                   variant="ghost"
                   className="h-12 w-full justify-start border border-zinc-200"
-                  onClick={() => {
-                    if (!user) {
-                      setShowLogin(true);
-                      return;
-                    }
-                    setShowLocationSelector(true);
-                  }}
+                  onClick={() => setShowLocationSelector(true)}
                 >
                   <MapPin className="mr-2 h-4 w-4" /> Select on map
                 </Button>
@@ -81,7 +61,6 @@ export function LocationGate() {
         ) : null}
       </AnimatePresence>
 
-      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} onSuccess={refresh} />
       <LocationSelector
         open={showLocationSelector}
         onClose={() => setShowLocationSelector(false)}

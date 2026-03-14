@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/card";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { BookingStepper } from "@/components/booking/booking-stepper";
 import { ServiceGrid } from "@/components/booking/service-grid";
-import { LoginModal } from "@/components/auth/login-modal";
 import { LocationSelector } from "@/components/location/location-selector";
 import { SavedAddressesList } from "@/components/location/saved-addresses-list";
 import { useCustomerSession } from "@/hooks/use-customer-session";
@@ -24,7 +23,6 @@ export function BookingFlow() {
   const [checkingServices, setCheckingServices] = useState(false);
   const [serviceMeta, setServiceMeta] = useState<{ estimatedArrivalTime: number; basePriceInPaise: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showLogin, setShowLogin] = useState(false);
   const [showLocationSelector, setShowLocationSelector] = useState(false);
 
   useEffect(() => {
@@ -75,7 +73,7 @@ export function BookingFlow() {
     setError(null);
 
     if (!user) {
-      setShowLogin(true);
+      setError("Preparing your guest session. Please try again in a moment.");
       return;
     }
 
@@ -149,11 +147,6 @@ export function BookingFlow() {
             <Button
               variant="ghost"
               onClick={() => {
-                if (!user) {
-                  setShowLogin(true);
-                  return;
-                }
-
                 setShowLocationSelector(true);
               }}
             >
@@ -225,24 +218,9 @@ export function BookingFlow() {
         </Button>
       </div>
 
-      <LoginModal
-        open={showLogin}
-        onClose={() => setShowLogin(false)}
-        onSuccess={() => {
-          refresh();
-          setShowLogin(false);
-          if (!selectedAddress) {
-            setShowLocationSelector(true);
-          }
-        }}
-      />
       <LocationSelector
         open={showLocationSelector}
         onClose={() => setShowLocationSelector(false)}
-        onAuthRequired={() => {
-          setShowLocationSelector(false);
-          setShowLogin(true);
-        }}
         onSaved={(address) => {
           setSelectedAddress(address);
           refresh();

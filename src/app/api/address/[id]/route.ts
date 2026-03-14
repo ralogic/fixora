@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getSessionUser } from "@/lib/auth/session";
+import { getActiveUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
 import { fail, ok } from "@/lib/utils/response";
 
@@ -9,10 +9,7 @@ type Params = {
 
 export async function DELETE(_request: NextRequest, context: Params) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return fail("Unauthorized", 401);
-    }
+    const user = await getActiveUser();
 
     const { id } = await context.params;
     const address = await prisma.address.findUnique({ where: { id } });

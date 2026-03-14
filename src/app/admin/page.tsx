@@ -47,10 +47,83 @@ const ORDER_STATUS_STYLE: Record<string, string> = {
   PENDING_ASSIGNMENT: "bg-rose-100 text-rose-700",
 };
 
-const tabs = ["Overview", "Orders", "Technicians", "Pricing", "Analytics"];
+import { useEffect } from "react";
+import {
+  BadgeCheck,
+  Eye,
+  FileText,
+  Loader2,
+  Phone,
+  RefreshCw,
+  ThumbsDown,
+  ThumbsUp,
+  X,
+} from "lucide-react";
+
+// ─── Pending Technician Type ──────────────────────────────────────────────────
+type PendingTech = {
+  id: string;
+  verificationStatus: string;
+  experienceYears: number;
+  workType: string;
+  skillsJson: string[];
+  user: { name: string; phone: string; email: string; createdAt: string; city?: { name: string } | null };
+  documents: { type: string; url: string; status: string }[];
+  serviceMappings: { service: { name: string; category: string } }[];
+  bankDetails: { bankName: string; accountName: string } | null;
+};
+
+const tabs = ["Overview", "Orders", "Technicians", "Verifications", "Pricing", "Analytics"];
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("Overview");
+
+  // ── Verifications state
+  const [pendingTechs, setPendingTechs] = useState<PendingTech[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [viewingTech, setViewingTech] = useState<PendingTech | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab === "Verifications") {
+      setPendingLoading(true);
+      fetch("/api/technicians/pending")
+        .then((r) => r.json())
+        .then((d) => setPendingTechs(d.technicians ?? []))
+        .catch(() => {})
+        .finally(() => setPendingLoading(false));
+    }
+  }, [activeTab]);
+
+  async function handleApprove(id: string) {
+    setActionLoading(id + "_approve");
+    try {
+      await fetch(`/api/technicians/${id}/approve`, { method: "PATCH" });
+      setPendingTechs((prev) => prev.filter((t) => t.id !== id));
+      if (viewingTech?.id === id) setViewingTech(null);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleReject(id: string) {
+    setActionLoading(id + "_reject");
+    try {
+      await fetch(`/api/technicians/${id}/reject`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: rejectReason }),
+      });
+      setPendingTechs((prev) => prev.filter((t) => t.id !== id));
+      setRejectTarget(null);
+      setRejectReason("");
+      if (viewingTech?.id === id) setViewingTech(null);
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -85,6 +158,31 @@ export default function AdminDashboard() {
                 {tab}
               </button>
             ))}
+                {/* Tab navigation */}
+                <div className="sticky top-16 z-40 border-b border-zinc-200 bg-white px-4 md:px-8">
+                  <div className="mx-auto max-w-7xl overflow-x-auto">
+                    <div className="flex gap-1 py-2">
+                      {tabs.map((tab) => (
+                        <button
+                          key={tab}
+                          onClick={() => setActiveTab(tab)}
+                          className={`relative whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                            activeTab === tab
+                              ? "bg-orange-500 text-white"
+                              : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                          }`}
+                        >
+                          {tab}
+                          {tab === "Verifications" && pendingTechs.length > 0 && (
+                            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                              {pendingTechs.length}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
           </div>
         </div>
       </div>
@@ -282,7 +380,7 @@ export default function AdminDashboard() {
 
         {activeTab === "Pricing" && (
           <Card className="space-y-5">
-            <div className="flex items-center justify-between">
+            <div key="pricing-header" className="flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-zinc-900">Pricing engine</h2>
               <Button className="h-9 px-4 text-sm">Save changes</Button>
             </div>
@@ -327,6 +425,279 @@ export default function AdminDashboard() {
           </Card>
         )}
       </div>
+    </div>
+  );
+}
+
+        {/* ── Verifications tab ── */}
+        {activeTab === "Verifications" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-extrabold text-zinc-900">Technician Verifications</h2>
+                <p className="text-sm text-zinc-500">Review and approve pending applications</p>
+              </div>
+              <button
+                onClick={() => {
+                  setPendingLoading(true);
+                  fetch("/api/technicians/pending")
+                    .then((r) => r.json())
+                    .then((d) => setPendingTechs(d.technicians ?? []))
+                    .catch(() => {})
+                    .finally(() => setPendingLoading(false));
+                }}
+                className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${pendingLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
+            </div>
+
+            {pendingLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-7 w-7 animate-spin text-orange-400" />
+              </div>
+            ) : pendingTechs.length === 0 ? (
+              <Card className="flex flex-col items-center gap-3 py-16 text-center">
+                <BadgeCheck className="h-12 w-12 text-emerald-400" />
+                <p className="font-semibold text-zinc-700">All caught up!</p>
+                <p className="text-sm text-zinc-400">No pending technician applications.</p>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {pendingTechs.map((tech, i) => (
+                  <motion.div
+                    key={tech.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.06 }}
+                  >
+                    <Card className="flex flex-col gap-4">
+                      {/* Header */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-amber-400 text-lg font-extrabold text-white">
+                          {tech.user.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-zinc-900 truncate">{tech.user.name}</p>
+                          <p className="flex items-center gap-1 text-xs text-zinc-400">
+                            <Phone className="h-3 w-3" /> {tech.user.phone}
+                          </p>
+                          <p className="text-xs text-zinc-400">
+                            {tech.user.city?.name ?? "—"} · Applied{" "}
+                            {new Date(tech.user.createdAt).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                          Pending
+                        </span>
+                      </div>
+
+                      {/* Service info */}
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {tech.serviceMappings.map((m) => (
+                          <span
+                            key={m.service.category}
+                            className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 font-semibold text-zinc-700"
+                          >
+                            {m.service.name}
+                          </span>
+                        ))}
+                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-zinc-500">
+                          {tech.experienceYears}y exp
+                        </span>
+                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-zinc-500 capitalize">
+                          {tech.workType.replace("_", " ").toLowerCase()}
+                        </span>
+                      </div>
+
+                      {/* Documents */}
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                          Documents
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {["AADHAAR", "PAN", "PROFILE_PHOTO", "CERTIFICATE"].map((type) => {
+                            const doc = tech.documents.find((d) => d.type === type);
+                            return (
+                              <span
+                                key={type}
+                                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  doc
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-zinc-100 text-zinc-400"
+                                }`}
+                              >
+                                {doc ? (
+                                  <CheckCircle2 className="h-3 w-3" />
+                                ) : (
+                                  <X className="h-3 w-3" />
+                                )}
+                                {type.replace("_", " ")}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => setViewingTech(tech)}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </button>
+                        <button
+                          onClick={() => handleApprove(tech.id)}
+                          disabled={!!actionLoading}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2 text-xs font-bold text-white transition hover:bg-emerald-600 disabled:opacity-60"
+                        >
+                          {actionLoading === tech.id + "_approve" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ThumbsUp className="h-3.5 w-3.5" />
+                          )}
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => setRejectTarget(tech.id)}
+                          disabled={!!actionLoading}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-red-50 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
+                        >
+                          <ThumbsDown className="h-3.5 w-3.5" /> Reject
+                        </button>
+                      </div>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── View Profile Modal ── */}
+      {viewingTech && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => setViewingTech(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-lg overflow-y-auto max-h-[90vh] rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-extrabold text-zinc-900">Technician Profile</h3>
+              <button onClick={() => setViewingTech(null)} className="rounded-full bg-zinc-100 p-1.5 hover:bg-zinc-200">
+                <X className="h-4 w-4 text-zinc-600" />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm">
+              {[
+                ["Name", viewingTech.user.name],
+                ["Phone", viewingTech.user.phone],
+                ["Email", viewingTech.user.email || "—"],
+                ["City", viewingTech.user.city?.name ?? "—"],
+                ["Service", viewingTech.serviceMappings.map((m) => m.service.name).join(", ")],
+                ["Experience", `${viewingTech.experienceYears} years`],
+                ["Work Type", viewingTech.workType.replace("_", " ")],
+                ["Bank / Account", viewingTech.bankDetails ? `${viewingTech.bankDetails.bankName} — ${viewingTech.bankDetails.accountName}` : "Not provided"],
+                ["Skills", Array.isArray(viewingTech.skillsJson) ? viewingTech.skillsJson.join(", ") : "—"],
+              ].map(([k, v]) => (
+                <div key={k as string} className="flex gap-2 border-b border-zinc-100 pb-2 last:border-0">
+                  <span className="w-28 shrink-0 font-semibold text-zinc-500">{k}</span>
+                  <span className="text-zinc-800">{v}</span>
+                </div>
+              ))}
+              <div>
+                <p className="mb-2 font-semibold text-zinc-500">Documents</p>
+                <div className="space-y-2">
+                  {viewingTech.documents.map((doc) => (
+                    <a
+                      key={doc.type}
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 transition hover:border-orange-300 hover:bg-orange-50"
+                    >
+                      <FileText className="h-4 w-4 text-orange-400" />
+                      <span className="flex-1 font-medium text-zinc-700">
+                        {doc.type.replace("_", " ")}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${doc.status === "PENDING" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+                        {doc.status}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => handleApprove(viewingTech.id)}
+                disabled={!!actionLoading}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
+              >
+                <ThumbsUp className="h-4 w-4" /> Approve
+              </button>
+              <button
+                onClick={() => { setRejectTarget(viewingTech.id); setViewingTech(null); }}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-2.5 text-sm font-bold text-red-600 hover:bg-red-100"
+              >
+                <ThumbsDown className="h-4 w-4" /> Reject
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── Reject Reason Modal ── */}
+      {rejectTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => setRejectTarget(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-lg font-extrabold text-zinc-900">Reject Application</h3>
+            <p className="mb-3 text-sm text-zinc-500">
+              Provide a reason that will be sent to the technician (optional):
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g. Documents are unclear. Please resubmit with better photos."
+              rows={3}
+              className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+            />
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => setRejectTarget(null)}
+                className="flex-1 rounded-xl border border-zinc-200 py-2.5 text-sm font-semibold text-zinc-600 hover:bg-zinc-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleReject(rejectTarget)}
+                disabled={!!actionLoading}
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-60"
+              >
+                {actionLoading === rejectTarget + "_reject" ? "Rejecting…" : "Confirm Reject"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

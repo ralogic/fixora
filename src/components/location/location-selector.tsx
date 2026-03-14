@@ -13,10 +13,9 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onSaved: (address: SavedAddress) => void;
-  onAuthRequired?: () => void;
 };
 
-export function LocationSelector({ open, onClose, onSaved, onAuthRequired }: Props) {
+export function LocationSelector({ open, onClose, onSaved }: Props) {
   const [lat, setLat] = useState(26.8467);
   const [lng, setLng] = useState(75.8067);
   const [addressLine, setAddressLine] = useState("");
@@ -85,12 +84,6 @@ export function LocationSelector({ open, onClose, onSaved, onAuthRequired }: Pro
       onClose();
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "Unable to save address";
-      if (message.toLowerCase().includes("unauthorized")) {
-        setError("Please login to save this address.");
-        onAuthRequired?.();
-        return;
-      }
-
       setError(message);
     } finally {
       setLoading(false);

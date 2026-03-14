@@ -1,17 +1,66 @@
 import Link from "next/link";
+import { Facebook, Instagram, Linkedin, Twitter, Wrench } from "lucide-react";
 
 export function Footer() {
+  const year = new Date().getFullYear();
+
   return (
-    <footer className="border-t border-zinc-200 bg-white/80">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-8 text-sm text-zinc-500 md:flex-row md:items-center md:justify-between md:px-8">
-        <p>Fixora Jaipur - Customer app and technician portal for 30-minute home repairs.</p>
-        <p className="flex items-center gap-3">
-          <Link href="/customer" className="font-medium text-zinc-700 hover:text-zinc-900">Customer</Link>
-          <span>-</span>
-          <Link href="/technician" className="font-medium text-zinc-700 hover:text-zinc-900">Technician</Link>
-          <span>-</span>
-          <Link href="/book" className="font-medium text-zinc-700 hover:text-zinc-900">Book now</Link>
-        </p>
+    <footer className="border-t border-slate-200 bg-white/85 backdrop-blur">
+      <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 md:grid-cols-5 md:px-8">
+        <div className="md:col-span-2">
+          <div className="flex items-center gap-2 text-slate-900">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white">
+              <Wrench className="h-4 w-4" />
+            </span>
+            <span className="text-lg font-bold">Fixora</span>
+          </div>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-600">
+            Premium local services platform connecting customers with trusted technicians for fast and transparent home repairs.
+          </p>
+          <div className="mt-4 flex items-center gap-2">
+            {[Twitter, Instagram, Facebook, Linkedin].map((Icon, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-label="Social link"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900">Company</h3>
+          <div className="mt-3 space-y-2 text-sm text-slate-600">
+            <Link href="/" className="block transition hover:text-slate-900">About</Link>
+            <Link href="/" className="block transition hover:text-slate-900">Careers</Link>
+            <Link href="/" className="block transition hover:text-slate-900">Cities</Link>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900">Services</h3>
+          <div className="mt-3 space-y-2 text-sm text-slate-600">
+            <Link href="/#services" className="block transition hover:text-slate-900">Electrician</Link>
+            <Link href="/#services" className="block transition hover:text-slate-900">Plumber</Link>
+            <Link href="/#services" className="block transition hover:text-slate-900">AC Repair</Link>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900">Support</h3>
+          <div className="mt-3 space-y-2 text-sm text-slate-600">
+            <Link href="/customer" className="block transition hover:text-slate-900">Customer App</Link>
+            <Link href="/technician" className="block transition hover:text-slate-900">Technician Portal</Link>
+            <Link href="/book" className="block transition hover:text-slate-900">Contact</Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-500 md:px-8">
+        © {year} Fixora. Built for fast, trusted, local service booking.
       </div>
     </footer>
   );

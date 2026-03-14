@@ -1,19 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafafa;
-  --foreground: #0f0f0f;
+  --background: #f8fbff;
+  --foreground: #0f172a;
   --card-bg: #ffffff;
-  --brand-orange: #f97316;
-  --brand-amber: #f59e0b;
-  --brand-surface: #fff7ed;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --brand-primary: #2563eb;
+  --brand-secondary: #0ea5e9;
+  --brand-accent: #22c55e;
+  --brand-surface: #eef6ff;
 }
 
 html {
@@ -27,17 +21,21 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+h1, h2, h3, h4 {
+  font-family: var(--font-poppins), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
 .premium-overlay {
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(4px);
 }
 
 .premium-sheet {
   border: 1px solid rgba(255, 255, 255, 0.75);
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 247, 237, 0.96) 65%, rgba(255, 255, 255, 0.98) 100%);
+    linear-gradient(160deg, rgba(255, 255, 255, 0.98) 0%, rgba(239, 246, 255, 0.96) 65%, rgba(255, 255, 255, 0.98) 100%);
   box-shadow:
-    0 24px 70px rgba(120, 53, 15, 0.18),
+    0 24px 70px rgba(30, 64, 175, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
@@ -47,9 +45,47 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px 0 rgba(249, 115, 22, 0.3); }
-  50% { box-shadow: 0 0 40px 0 rgba(249, 115, 22, 0.6); }
+  0%, 100% { box-shadow: 0 0 20px 0 rgba(37, 99, 235, 0.2); }
+  50% { box-shadow: 0 0 40px 0 rgba(14, 165, 233, 0.35); }
 }
 
 .animate-float { animation: float 3s ease-in-out infinite; }
 .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+.glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(239, 246, 255, 0.75));
+  backdrop-filter: blur(14px);
+}
+
+@keyframes gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-gradient {
+  background-image: linear-gradient(120deg, #1d4ed8, #0ea5e9, #10b981, #1d4ed8);
+  background-size: 240% 240%;
+  animation: gradient-pan 8s ease infinite;
+}
+
+@keyframes ripple {
+  from {
+    transform: scale(0);
+    opacity: 0.45;
+  }
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(0);
+  animation: ripple 600ms linear;
+  pointer-events: none;
+}
