@@ -16,6 +16,12 @@ import { useBookingStore } from "@/state/modules/booking-store";
 
 const STEPS = ["Service", "Issue", "Technician", "Location", "Contact", "Confirm"];
 
+const CITY_FALLBACK_COORDS: Record<string, { lat: number; lng: number }> = {
+  jaipur: { lat: 26.9124, lng: 75.7873 },
+  delhi: { lat: 28.6139, lng: 77.209 },
+  mumbai: { lat: 19.076, lng: 72.8777 },
+};
+
 type TechnicianOption = {
   technicianId: string;
   name: string;
@@ -64,16 +70,21 @@ export function BookingFlow() {
 
   useEffect(() => {
     async function loadTechnicians() {
-      if (!draft.serviceId || !draft.lat || !draft.lng) {
+      if (!draft.serviceId) {
         setTechnicians([]);
         return;
       }
+
+      const cityKey = draft.citySlug ?? "jaipur";
+      const fallbackCoords = CITY_FALLBACK_COORDS[cityKey] ?? CITY_FALLBACK_COORDS.jaipur;
+      const queryLat = draft.lat ?? fallbackCoords.lat;
+      const queryLng = draft.lng ?? fallbackCoords.lng;
 
       setTechnicianError(null);
       setLoadingTechnicians(true);
       try {
         const result = await apiClient.get<{ city: string; results: TechnicianOption[] }>(
-          `/api/technicians?city=${draft.citySlug ?? "jaipur"}&serviceId=${draft.serviceId}&lat=${draft.lat}&lng=${draft.lng}`,
+          `/api/technicians?city=${cityKey}&serviceId=${draft.serviceId}&lat=${queryLat}&lng=${queryLng}`,
         );
         setTechnicians(result.results ?? []);
       } catch (requestError) {
@@ -197,7 +208,7 @@ export function BookingFlow() {
 
           {!selectedAddress ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              Select your address in the next step to get nearby technician matches, or continue and we'll auto-assign the best available pro.
+              Showing live technicians available in your city. Add/select your address in the next step for precise nearby matching.
             </div>
           ) : null}
 

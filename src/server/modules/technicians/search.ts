@@ -43,7 +43,11 @@ export async function getRankedTechnicianCandidates(
     where: {
       isOnline: true,
       verificationStatus: "VERIFIED",
+      onboardingComplete: true,
       primaryCityId: city.id,
+      user: {
+        role: "TECHNICIAN",
+      },
       serviceMappings: {
         some: {
           serviceId: input.serviceId,

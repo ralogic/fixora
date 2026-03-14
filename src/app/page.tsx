@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import {
   AirVent,
@@ -112,6 +113,7 @@ const coverageCities = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeReview, setActiveReview] = useState(0);
   const [activeArea, setActiveArea] = useState(coverageCities[0]);
@@ -272,6 +274,7 @@ export default function HomePage() {
               <motion.button
                 key={id}
                 type="button"
+                onClick={() => router.push(`/book?service=${encodeURIComponent(id)}`)}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
@@ -297,6 +300,7 @@ export default function HomePage() {
               <button
                 key={`${id}-chip`}
                 type="button"
+                onClick={() => router.push(`/book?service=${encodeURIComponent(id)}`)}
                 className="flex shrink-0 snap-start items-center gap-2 rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700"
               >
                 <Icon className="h-4 w-4" />
@@ -386,7 +390,7 @@ export default function HomePage() {
                     <p className="mt-2 flex items-center gap-1 text-sm text-slate-500">
                       <MapPin className="h-3.5 w-3.5" /> {tech.location}
                     </p>
-                    <Button className="mt-4 h-10 w-full rounded-xl">Book Now</Button>
+                    <Button onClick={() => router.push("/book")} className="mt-4 h-10 w-full rounded-xl">Book Now</Button>
                   </motion.article>
                 ))}
           </div>
@@ -451,8 +455,22 @@ export default function HomePage() {
               Get instant updates, OTP-secured technician check-in, digital invoice, and support chat in one place.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <button className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">Download for Android</button>
-              <button className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700">Download for iOS</button>
+              <a
+                href="https://play.google.com/store"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+              >
+                Download for Android
+              </a>
+              <a
+                href="https://www.apple.com/app-store/"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700"
+              >
+                Download for iOS
+              </a>
             </div>
           </div>
 

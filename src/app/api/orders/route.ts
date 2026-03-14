@@ -5,24 +5,55 @@ import { AuthorizationError, requireRole } from "@/server/shared/authz";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireRole("CUSTOMER");
+    const user = await requireRole(["CUSTOMER", "TECHNICIAN", "ADMIN"]);
+
+    const baseInclude = {
+      service: true,
+      technician: {
+        include: {
+          user: true,
+        },
+      },
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+      location: true,
+      rating: true,
+    } as const;
+
+    if (user.role === "CUSTOMER") {
+      const orders = await prisma.order.findMany({
+        where: { customerId: user.id },
+        include: baseInclude,
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+
+      return ok({ orders, scope: "customer" as const });
+    }
+
+    if (user.role === "TECHNICIAN") {
+      const orders = await prisma.order.findMany({
+        where: { technicianId: user.id },
+        include: baseInclude,
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+
+      return ok({ orders, scope: "technician" as const });
+    }
 
     const orders = await prisma.order.findMany({
-      where: { customerId: user.id },
-      include: {
-        service: true,
-        technician: {
-          include: {
-            user: true,
-          },
-        },
-        location: true,
-      },
+      include: baseInclude,
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 100,
     });
 
-    return ok({ orders });
+    return ok({ orders, scope: "admin" as const });
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return fail(error.message, error.statusCode);

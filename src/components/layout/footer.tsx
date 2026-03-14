@@ -1,8 +1,22 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Facebook, Instagram, Linkedin, Twitter, Wrench } from "lucide-react";
 
 export function Footer() {
+  const pathname = usePathname();
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
+
   const year = new Date().getFullYear();
+  const socialLinks = [
+    { href: "https://x.com", label: "X", Icon: Twitter },
+    { href: "https://instagram.com", label: "Instagram", Icon: Instagram },
+    { href: "https://facebook.com", label: "Facebook", Icon: Facebook },
+    { href: "https://linkedin.com", label: "LinkedIn", Icon: Linkedin },
+  ];
 
   return (
     <footer className="border-t border-slate-200 bg-white/85 backdrop-blur">
@@ -18,15 +32,17 @@ export function Footer() {
             Premium local services platform connecting customers with trusted technicians for fast and transparent home repairs.
           </p>
           <div className="mt-4 flex items-center gap-2">
-            {[Twitter, Instagram, Facebook, Linkedin].map((Icon, index) => (
-              <button
-                key={index}
-                type="button"
-                aria-label="Social link"
+            {socialLinks.map(({ href, label, Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={label}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
               >
                 <Icon className="h-4 w-4" />
-              </button>
+              </a>
             ))}
           </div>
         </div>

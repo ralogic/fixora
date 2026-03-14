@@ -108,9 +108,11 @@ export default function OrderHistoryPage() {
                       </Button>
                     </Link>
                     {order.status === "COMPLETED" && (
-                      <Button variant="ghost" className="h-8 px-3 text-xs border border-zinc-200">
-                        <Star className="mr-1 h-3 w-3" /> Rate
-                      </Button>
+                      <Link href="/customer/dashboard">
+                        <Button variant="ghost" className="h-8 px-3 text-xs border border-zinc-200">
+                          <Star className="mr-1 h-3 w-3" /> Rate
+                        </Button>
+                      </Link>
                     )}
                   </div>
                 </div>

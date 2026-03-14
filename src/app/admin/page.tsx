@@ -1,7 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -29,20 +31,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 // ─── Static data ─────────────────────────────────────────────────────────────
-const KPI_CARDS = [
-  { label: "Orders today", value: "48", change: "+12%", icon: Wrench, color: "text-orange-500" },
-  { label: "Revenue today", value: "₹14,280", change: "+8%", icon: DollarSign, color: "text-emerald-500" },
-  { label: "Active technicians", value: "34", change: "+2", icon: Users, color: "text-blue-500" },
-  { label: "SLA breaches", value: "2", change: "-1", icon: AlertTriangle, color: "text-rose-500" },
-];
-
-const LIVE_ORDERS = [
-  { id: "ord_001", customer: "Priya S.", service: "Electrician", zone: "Malviya Nagar", status: "IN_PROGRESS", eta: 8 },
-  { id: "ord_002", customer: "Amit K.", service: "AC Repair", zone: "Vaishali Nagar", status: "ON_THE_WAY", eta: 14 },
-  { id: "ord_003", customer: "Rohit M.", service: "Plumber", zone: "Mansarovar", status: "ASSIGNED", eta: 22 },
-  { id: "ord_004", customer: "Sunita D.", service: "Appliance", zone: "Sodala", status: "PENDING_ASSIGNMENT", eta: 0 },
-];
-
 const TECHNICIANS = [
   { name: "Rajesh K.", service: "Electrician", rating: 4.9, jobs: 612, status: "online", verified: true },
   { name: "Mohan L.", service: "Plumber", rating: 4.7, jobs: 441, status: "online", verified: true },
@@ -59,6 +47,8 @@ const ORDER_STATUS_STYLE: Record<string, string> = {
 
 const tabs = ["Overview", "Orders", "Technicians", "Verifications", "Pricing", "Analytics"];
 
+const ACTIVE_ORDER_STATUSES = ["PENDING_ASSIGNMENT", "ASSIGNED", "ON_THE_WAY", "ARRIVED", "IN_PROGRESS"] as const;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type PendingTech = {
   id: string;
@@ -72,9 +62,26 @@ type PendingTech = {
   bankDetails: { bankName: string; accountName: string } | null;
 };
 
+type AdminOrder = {
+  id: string;
+  status: string;
+  estimatedEtaMinutes: number | null;
+  estimatedAmountPaise: number;
+  finalAmountPaise: number | null;
+  createdAt: string;
+  completedAt: string | null;
+  service: { name: string };
+  customer: { name: string };
+  location: { landmark: string | null; addressLine: string } | null;
+};
+
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("Overview");
+  const [authLoading, setAuthLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
 
   // Verifications state
   const [pendingTechs, setPendingTechs] = useState<PendingTech[]>([]);
@@ -83,9 +90,108 @@ export default function AdminDashboard() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [techRoster, setTechRoster] = useState(TECHNICIANS);
+  const [pricingSaved, setPricingSaved] = useState(false);
+
+  const liveOrders = useMemo(() => {
+    return orders
+      .filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status as (typeof ACTIVE_ORDER_STATUSES)[number]))
+      .slice(0, 8)
+      .map((order) => ({
+        id: order.id,
+        customer: order.customer?.name ?? "Customer",
+        service: order.service?.name ?? "Service",
+        zone: order.location?.landmark ?? order.location?.addressLine ?? "Jaipur",
+        status: order.status,
+        eta: order.estimatedEtaMinutes ?? 0,
+      }));
+  }, [orders]);
+
+  const kpiCards = useMemo(() => {
+    const today = new Date();
+    const sameDay = (value: string | null) => {
+      if (!value) return false;
+      const date = new Date(value);
+      return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+    };
+
+    const ordersToday = orders.filter((order) => sameDay(order.createdAt));
+    const completedToday = orders.filter((order) => order.status === "COMPLETED" && sameDay(order.completedAt));
+    const todayRevenue = completedToday.reduce(
+      (sum, order) => sum + (order.finalAmountPaise ?? order.estimatedAmountPaise),
+      0,
+    );
+    const activeNow = orders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status as (typeof ACTIVE_ORDER_STATUSES)[number])).length;
+    const pendingAssign = orders.filter((order) => order.status === "PENDING_ASSIGNMENT").length;
+
+    return [
+      { label: "Orders today", value: String(ordersToday.length), change: "Live", icon: Wrench, color: "text-orange-500" },
+      {
+        label: "Revenue today",
+        value: `₹${Math.round(todayRevenue / 100).toLocaleString("en-IN")}`,
+        change: "Live",
+        icon: DollarSign,
+        color: "text-emerald-500",
+      },
+      { label: "Active orders", value: String(activeNow), change: "Realtime", icon: Users, color: "text-blue-500" },
+      { label: "Need assignment", value: String(pendingAssign), change: "Action", icon: AlertTriangle, color: "text-rose-500" },
+    ];
+  }, [orders]);
 
   useEffect(() => {
-    if (activeTab === "Verifications") {
+    async function checkAdmin() {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
+        const result = await response.json();
+        const role = result?.data?.user?.role;
+        if (!response.ok || !result?.success || role !== "ADMIN") {
+          router.replace("/admin/login");
+          return;
+        }
+      } catch {
+        router.replace("/admin/login");
+        return;
+      }
+
+      setAuthLoading(false);
+    }
+
+    void checkAdmin();
+  }, [router]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    let isMounted = true;
+    async function loadOrders() {
+      try {
+        const response = await fetch("/api/orders", { cache: "no-store", credentials: "include" });
+        const result = await response.json();
+        if (!isMounted) return;
+
+        if (response.ok && result?.success) {
+          setOrders(result.data?.orders ?? []);
+        }
+      } finally {
+        if (isMounted) {
+          setOrdersLoading(false);
+        }
+      }
+    }
+
+    void loadOrders();
+    const timer = window.setInterval(() => {
+      void loadOrders();
+    }, 10000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(timer);
+    };
+  }, [authLoading]);
+
+  useEffect(() => {
+    if (!authLoading && activeTab === "Verifications") {
       setPendingLoading(true);
       fetch("/api/technicians/pending")
         .then((r) => r.json())
@@ -93,7 +199,7 @@ export default function AdminDashboard() {
         .catch(() => {})
         .finally(() => setPendingLoading(false));
     }
-  }, [activeTab]);
+  }, [activeTab, authLoading]);
 
   async function handleApprove(id: string) {
     setActionLoading(id + "_approve");
@@ -121,6 +227,23 @@ export default function AdminDashboard() {
     } finally {
       setActionLoading(null);
     }
+  }
+
+  function savePricingDraft() {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("fixora_pricing_last_saved", new Date().toISOString());
+    setPricingSaved(true);
+    window.setTimeout(() => setPricingSaved(false), 2200);
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-600">
+          <Loader2 className="h-4 w-4 animate-spin" /> Verifying admin session...
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -169,7 +292,7 @@ export default function AdminDashboard() {
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8">
         {/* KPI cards — always visible */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {KPI_CARDS.map(({ label, value, change, icon: Icon, color }, i) => (
+          {kpiCards.map(({ label, value, change, icon: Icon, color }, i) => (
             <motion.div
               key={label}
               initial={{ opacity: 0, y: 12 }}
@@ -183,7 +306,7 @@ export default function AdminDashboard() {
                     <ArrowUpRight className="h-3 w-3" /> {change}
                   </span>
                 </div>
-                <p className="text-2xl font-extrabold text-zinc-900">{value}</p>
+                <p className="text-2xl font-extrabold text-zinc-900">{ordersLoading ? "..." : value}</p>
                 <p className="text-xs text-zinc-500">{label}</p>
               </Card>
             </motion.div>
@@ -196,7 +319,7 @@ export default function AdminDashboard() {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-zinc-900">Live order board</h2>
               <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-600">
-                {LIVE_ORDERS.filter((o) => o.status === "PENDING_ASSIGNMENT").length} need assignment
+                {liveOrders.filter((o) => o.status === "PENDING_ASSIGNMENT").length} need assignment
               </span>
             </div>
             <div className="overflow-x-auto">
@@ -213,7 +336,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {LIVE_ORDERS.map((order) => (
+                  {liveOrders.map((order) => (
                     <tr key={order.id}>
                       <td className="py-3 pr-4 font-mono text-xs text-zinc-500">#{order.id}</td>
                       <td className="py-3 pr-4 font-semibold text-zinc-900">{order.customer}</td>
@@ -238,12 +361,21 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="py-3">
-                        <Button variant="ghost" className="h-7 px-2 text-xs border border-zinc-200">
-                          Manage
-                        </Button>
+                        <Link href={`/track/${order.id}`}>
+                          <Button variant="ghost" className="h-7 px-2 text-xs border border-zinc-200">
+                            Manage
+                          </Button>
+                        </Link>
                       </td>
                     </tr>
                   ))}
+                  {liveOrders.length === 0 && !ordersLoading ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-sm text-zinc-500">
+                        No live orders right now.
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
@@ -255,9 +387,11 @@ export default function AdminDashboard() {
           <Card>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-zinc-900">Technician roster</h2>
-              <Button variant="secondary" className="h-8 px-3 text-xs gap-1">
-                <Users className="h-3 w-3" /> Onboard new
-              </Button>
+              <Link href="/join">
+                <Button variant="secondary" className="h-8 px-3 text-xs gap-1">
+                  <Users className="h-3 w-3" /> Onboard new
+                </Button>
+              </Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -273,7 +407,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {TECHNICIANS.map((tech) => (
+                  {techRoster.map((tech) => (
                     <tr key={tech.name}>
                       <td className="py-3 pr-4 font-semibold text-zinc-900">{tech.name}</td>
                       <td className="py-3 pr-4 text-zinc-700">{tech.service}</td>
@@ -296,10 +430,26 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="py-3 flex gap-1">
-                        <Button variant="ghost" className="h-7 px-2 text-xs border border-zinc-200">
+                        <Button
+                          onClick={() => setActiveTab("Verifications")}
+                          variant="ghost"
+                          className="h-7 px-2 text-xs border border-zinc-200"
+                        >
                           <ShieldCheck className="h-3 w-3 mr-1" /> Verify
                         </Button>
-                        <Button variant="ghost" className="h-7 px-2 text-xs border border-zinc-200">
+                        <Button
+                          onClick={() => {
+                            setTechRoster((prev) =>
+                              prev.map((item) =>
+                                item.name === tech.name
+                                  ? { ...item, status: item.status === "online" ? "offline" : "online" }
+                                  : item,
+                              ),
+                            );
+                          }}
+                          variant="ghost"
+                          className="h-7 px-2 text-xs border border-zinc-200"
+                        >
                           <Settings className="h-3 w-3" />
                         </Button>
                       </td>
@@ -365,7 +515,10 @@ export default function AdminDashboard() {
           <Card className="space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-zinc-900">Pricing engine</h2>
-              <Button className="h-9 px-4 text-sm">Save changes</Button>
+              <div className="flex items-center gap-2">
+                {pricingSaved ? <span className="text-xs font-semibold text-emerald-600">Saved</span> : null}
+                <Button onClick={savePricingDraft} className="h-9 px-4 text-sm">Save changes</Button>
+              </div>
             </div>
             <p className="text-sm text-zinc-500">
               Configure base pricing and zone multipliers for Jaipur.

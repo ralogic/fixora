@@ -16,6 +16,7 @@ export function OrderLiveTracker({ orderId }: { orderId: string }) {
   const [customerLat] = useState(26.8467);
   const [customerLng] = useState(75.8067);
   const [etaMinutes, setEtaMinutes] = useState(22);
+  const technicianPhone = "+919999999999";
 
   useEffect(() => {
     const socket = getSocketClient();
@@ -60,12 +61,20 @@ export function OrderLiveTracker({ orderId }: { orderId: string }) {
           <div className="rounded-xl bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-800">
             Live ETA: {etaMinutes} mins
           </div>
-          <button className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-sm font-semibold text-white">
+          <a
+            href={`tel:${technicianPhone}`}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-sm font-semibold text-white"
+          >
             <PhoneCall className="h-4 w-4" /> Call technician
-          </button>
-          <button className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white text-sm font-semibold text-zinc-900">
+          </a>
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${technicianLat},${technicianLng}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white text-sm font-semibold text-zinc-900"
+          >
             <MapPin className="h-4 w-4" /> Open live map
-          </button>
+          </a>
         </div>
       </Card>
 

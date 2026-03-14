@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { BriefcaseBusiness, Home, MapPin, Menu, UserRound, Wrench, X } from "lucide-react";
+import { BriefcaseBusiness, Home, MapPin, Menu, ShieldCheck, UserRound, Wrench, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,42 @@ export function Navbar() {
   const isLandingPage = pathname === "/";
   const isTechnicianPortal = pathname.startsWith("/technician");
   const isJoinPage = pathname.startsWith("/join");
+  const isAdminPortal = pathname.startsWith("/admin");
   const showCustomerControls = !isTechnicianPortal && !isJoinPage;
+
+  if (isAdminPortal) {
+    return (
+      <motion.header
+        initial={{ y: -18, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.45 }}
+        className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 backdrop-blur"
+      >
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 md:px-8">
+          <Link href="/" className="flex items-center gap-2 text-slate-900">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white">
+              <Wrench className="h-4 w-4" />
+            </span>
+            <span className="text-lg font-bold tracking-tight">Fixora</span>
+            <span className="hidden rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-semibold text-blue-700 md:inline">
+              <ShieldCheck className="mr-1 inline h-3.5 w-3.5" /> Admin portal
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <Link href="/admin/login">
+              <Button variant="ghost" className="h-10 px-4 text-xs md:text-sm">
+                Admin login
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button className="h-10 px-4 text-xs md:text-sm">Go to website</Button>
+            </Link>
+          </div>
+        </div>
+      </motion.header>
+    );
+  }
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 8);
@@ -210,9 +245,11 @@ export function Navbar() {
 
           <div className="flex items-center gap-2">
             {showCustomerControls ? (
-              <Button variant="ghost" className="h-10 px-4 text-xs md:text-sm" disabled>
-                Guest
-              </Button>
+              <Link href="/login">
+                <Button variant="ghost" className="h-10 px-4 text-xs md:text-sm">
+                  Guest
+                </Button>
+              </Link>
             ) : (
               <Link href="/customer">
                 <Button variant="ghost" className="h-10 px-3 text-xs md:text-sm">

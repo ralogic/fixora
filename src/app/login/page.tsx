@@ -226,6 +226,13 @@ export default function LoginPage() {
               Join & onboard
             </Link>
           </p>
+
+          <p className="mt-2 text-center text-sm text-neutral-500 dark:text-neutral-400">
+            Admin panel access?{" "}
+            <Link href="/admin/login" className="font-medium text-sky-600 hover:underline">
+              Open admin login
+            </Link>
+          </p>
         </div>
       </div>
 

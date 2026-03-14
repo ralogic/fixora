@@ -78,14 +78,14 @@ type BankingForm = {
 // ΓöÇΓöÇΓöÇ Constants ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const SERVICE_CATEGORIES = [
-  { value: "electrician", label: "Electrician", icon: "ΓÜí" },
-  { value: "plumber", label: "Plumber", icon: "≡ƒöº" },
-  { value: "ac-repair", label: "AC Repair", icon: "Γ¥ä∩╕Å" },
-  { value: "appliance", label: "Appliance Repair", icon: "≡ƒöî" },
-  { value: "carpenter", label: "Carpenter", icon: "≡ƒ¬Ü" },
-  { value: "mobile-repair", label: "Mobile Repair", icon: "≡ƒô▒" },
-  { value: "painter", label: "Painter", icon: "≡ƒûî∩╕Å" },
-  { value: "cleaner", label: "Deep Cleaner", icon: "≡ƒº╣" },
+  { value: "electrician", label: "Electrician", icon: "EL" },
+  { value: "plumber", label: "Plumber", icon: "PL" },
+  { value: "ac-repair", label: "AC Repair", icon: "AC" },
+  { value: "appliance", label: "Appliance Repair", icon: "AP" },
+  { value: "carpenter", label: "Carpenter", icon: "CR" },
+  { value: "mobile-repair", label: "Mobile Repair", icon: "MR" },
+  { value: "painter", label: "Painter", icon: "PT" },
+  { value: "cleaner", label: "Deep Cleaner", icon: "DC" },
 ];
 
 const SKILL_OPTIONS: Record<string, string[]> = {
@@ -315,7 +315,7 @@ export default function JoinPage() {
           <div>
             <h1 className="text-3xl font-extrabold text-zinc-900">Application submitted!</h1>
             <p className="mt-3 max-w-sm text-zinc-500">
-              Our team will verify your documents within <strong>24ΓÇô48 hours</strong>. You'll receive an SMS on{" "}
+              Our team will verify your documents within <strong>24-48 hours</strong>. You'll receive an SMS on{" "}
               <strong>{personal.phone}</strong> once approved.
             </p>
           </div>
@@ -371,12 +371,12 @@ export default function JoinPage() {
         >
           <h1 className="text-2xl font-extrabold md:text-3xl">Become a Fixora Technician</h1>
           <p className="mt-1 text-cyan-100">
-            Earn Γé╣30,000ΓÇôΓé╣70,000 / month ┬╖ Flexible hours ┬╖ 10,000+ jobs available
+            Earn Rs 30,000 to Rs 70,000 / month | Flexible hours | 10,000+ jobs available
           </p>
           <div className="mt-4 flex flex-wrap gap-4 text-sm">
             {[
               { icon: Shield, text: "Verified badge" },
-              { icon: Star, text: "Γé╣0 joining fee" },
+              { icon: Star, text: "No joining fee" },
               { icon: Zap, text: "Same-day payouts" },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1">
@@ -589,7 +589,7 @@ export default function JoinPage() {
                         className={fieldCls(!!errors.experienceYears)}
                       >
                         <option value="">Select experience</option>
-                        {["Less than 1", "1", "2", "3", "4", "5", "6ΓÇô10", "10+"].map((v) => (
+                        {["Less than 1", "1", "2", "3", "4", "5", "6-10", "10+"].map((v) => (
                           <option key={v} value={v}>{v} year{v !== "Less than 1" ? "s" : ""}</option>
                         ))}
                       </select>
@@ -690,7 +690,7 @@ export default function JoinPage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <DocUploadCard
                       label="Aadhaar Card *"
-                      description="Front side ┬╖ JPG/PNG/PDF"
+                      description="Front side - JPG/PNG/PDF"
                       field="aadhaar"
                       preview={documents.aadhaarPreview}
                       file={documents.aadhaar}
@@ -702,7 +702,7 @@ export default function JoinPage() {
                     />
                     <DocUploadCard
                       label="PAN Card *"
-                      description="Clear photo ┬╖ JPG/PNG/PDF"
+                      description="Clear photo - JPG/PNG/PDF"
                       field="pan"
                       preview={documents.panPreview}
                       file={documents.pan}
@@ -714,7 +714,7 @@ export default function JoinPage() {
                     />
                     <DocUploadCard
                       label="Profile Photo *"
-                      description="Clear face photo ┬╖ JPG/PNG"
+                      description="Clear face photo - JPG/PNG"
                       field="profilePhoto"
                       preview={documents.profilePhotoPreview}
                       file={documents.profilePhoto}
@@ -731,7 +731,7 @@ export default function JoinPage() {
                     />
                     <DocUploadCard
                       label="Skill Certificate"
-                      description="Optional ┬╖ Diploma / ITI"
+                      description="Optional - Diploma / ITI"
                       field="certificate"
                       preview={documents.certificatePreview}
                       file={documents.certificate}

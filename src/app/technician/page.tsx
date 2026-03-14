@@ -2,7 +2,9 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { OrderStatus } from "@prisma/client";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeftRight,
   BellRing,
@@ -13,24 +15,65 @@ import {
   Navigation,
   Power,
   Star,
-  Timer,
   Trophy,
   Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { apiClient } from "@/services/api-client/client";
 
-type IncomingJob = {
+type TechnicianOrder = {
+  id: string;
+  status: OrderStatus;
+  createdAt: string;
+  completedAt: string | null;
+  estimatedAmountPaise: number;
+  finalAmountPaise: number | null;
+  service: { name: string; category: string };
+  customer: { id: string; name: string; phone: string };
+  location: {
+    addressLine: string;
+    landmark: string | null;
+  } | null;
+  rating: {
+    score: number;
+  } | null;
+};
+
+type JobCard = {
   orderId: string;
   service: string;
+  customerName: string;
   address: string;
-  distanceKm: number;
   amountInr: number;
 };
 
 const WEEK_EARNINGS = [320, 480, 550, 290, 640, 720, 410];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TECHNICIAN_ONBOARDING_KEY = "fixora_technician_onboarded";
+const ACTIVE_ORDER_STATUSES: OrderStatus[] = ["ASSIGNED", "ON_THE_WAY", "ARRIVED", "IN_PROGRESS"];
+
+function toJobCard(order: TechnicianOrder): JobCard {
+  const addressBits = [order.location?.addressLine, order.location?.landmark]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    orderId: order.id,
+    service: order.service.name,
+    customerName: order.customer.name,
+    address: addressBits || "Address unavailable",
+    amountInr: Math.round((order.finalAmountPaise ?? order.estimatedAmountPaise) / 100),
+  };
+}
+
+function nextStatus(status: OrderStatus): OrderStatus | null {
+  if (status === "ASSIGNED") return "ON_THE_WAY";
+  if (status === "ON_THE_WAY") return "ARRIVED";
+  if (status === "ARRIVED") return "IN_PROGRESS";
+  if (status === "IN_PROGRESS") return "COMPLETED";
+  return null;
+}
 
 function subscribeTechnicianOnboarding(onStoreChange: () => void) {
   if (typeof window === "undefined") {
@@ -81,104 +124,123 @@ function EarningsChart() {
   );
 }
 
-function CountdownRing({ seconds, total }: { seconds: number; total: number }) {
-  const pct = seconds / total;
-  const r = 36;
-  const circumference = 2 * Math.PI * r;
-  return (
-    <svg width="88" height="88" className="-rotate-90">
-      <circle cx="44" cy="44" r={r} fill="none" stroke="#e4e4e7" strokeWidth="6" />
-      <motion.circle
-        cx="44"
-        cy="44"
-        r={r}
-        fill="none"
-        stroke="#f97316"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        animate={{ strokeDashoffset: circumference * (1 - pct) }}
-        transition={{ duration: 0.5 }}
-      />
-    </svg>
-  );
-}
-
 export default function TechnicianDashboard() {
+  const router = useRouter();
   const hasSeenOnboarding = useSyncExternalStore(
     subscribeTechnicianOnboarding,
     getTechnicianOnboardingSnapshot,
     () => false,
   );
   const [isOnline, setIsOnline] = useState(false);
-  const [incomingJob, setIncomingJob] = useState<IncomingJob | null>(null);
-  const [countdown, setCountdown] = useState(20);
-  const [activeJob, setActiveJob] = useState<IncomingJob | null>(null);
-  const [jobStatus, setJobStatus] = useState<"navigation" | "arrived" | "in_progress" | "completed">("navigation");
-  const countRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [orders, setOrders] = useState<TechnicianOrder[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const incomingOrder = useMemo(
+    () => orders.find((order) => order.status === "PENDING_ASSIGNMENT") ?? null,
+    [orders],
+  );
+
+  const activeOrder = useMemo(
+    () => orders.find((order) => ACTIVE_ORDER_STATUSES.includes(order.status)) ?? null,
+    [orders],
+  );
+
+  const incomingJob = incomingOrder ? toJobCard(incomingOrder) : null;
+  const activeJob = activeOrder ? toJobCard(activeOrder) : null;
+
+  const today = new Date();
+  const isToday = (value: string | null) => {
+    if (!value) return false;
+    const date = new Date(value);
+    return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+  };
+
+  const jobsToday = orders.filter((order) => isToday(order.createdAt) && order.status !== "CANCELED").length;
+  const earnedToday = orders
+    .filter((order) => order.status === "COMPLETED" && isToday(order.completedAt))
+    .reduce((sum, order) => sum + (order.finalAmountPaise ?? order.estimatedAmountPaise), 0);
+  const completedRatings = orders
+    .filter((order) => order.rating?.score)
+    .map((order) => order.rating!.score);
+  const avgRating = completedRatings.length > 0
+    ? (completedRatings.reduce((sum, score) => sum + score, 0) / completedRatings.length).toFixed(1)
+    : "-";
+
+  const loadOrders = useCallback(async () => {
+    try {
+      const result = await apiClient.get<{ orders: TechnicianOrder[] }>("/api/orders");
+      setOrders(result.orders ?? []);
+      setError(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to sync bookings");
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, []);
 
   function toggleOnline() {
-    setIsOnline((previous) => {
-      if (previous) {
-        setIncomingJob(null);
-        setCountdown(20);
-        if (countRef.current) clearInterval(countRef.current);
-      }
-      return !previous;
-    });
+    setIsOnline((previous) => !previous);
   }
 
-  // Simulate incoming job offer when technician goes online
   useEffect(() => {
-    if (!isOnline) {
+    void loadOrders();
+    const timer = window.setInterval(() => {
+      void loadOrders();
+    }, 8000);
+
+    return () => window.clearInterval(timer);
+  }, [loadOrders]);
+
+  async function postAction(url: string, method: "POST" | "PATCH", body: Record<string, unknown>) {
+    const response = await fetch(url, {
+      method,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result?.error?.message ?? "Request failed");
+    }
+  }
+
+  async function acceptJob() {
+    if (!incomingJob || !incomingOrder) return;
+    setActionBusy(true);
+    try {
+      await postAction(`/api/orders/${incomingOrder.id}/accept`, "POST", {});
+      await loadOrders();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to accept job");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function advanceStatus() {
+    if (!activeOrder) {
       return;
     }
 
-    const timer = setTimeout(() => {
-      setIncomingJob({
-        orderId: "ord_demo_001",
-        service: "Electrician",
-        address: "A-45, Malviya Nagar, Jaipur",
-        distanceKm: 1.8,
-        amountInr: 349,
-      });
-      setCountdown(20);
-    }, 2500);
+    const status = nextStatus(activeOrder.status);
+    if (!status) {
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [isOnline]);
-
-  useEffect(() => {
-    if (!incomingJob) return;
-    countRef.current = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(countRef.current!);
-          setIncomingJob(null);
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(countRef.current!);
-  }, [incomingJob]);
-
-  function acceptJob() {
-    if (!incomingJob) return;
-    setActiveJob(incomingJob);
-    setIncomingJob(null);
-    setJobStatus("navigation");
-    if (countRef.current) clearInterval(countRef.current);
-  }
-
-  function advanceStatus() {
-    const flow: typeof jobStatus[] = ["navigation", "arrived", "in_progress", "completed"];
-    const idx = flow.indexOf(jobStatus);
-    if (idx < flow.length - 1) {
-      setJobStatus(flow[idx + 1]);
-    } else {
-      setActiveJob(null);
-      setJobStatus("navigation");
+    setActionBusy(true);
+    try {
+      await postAction(`/api/orders/${activeOrder.id}/status`, "PATCH", { status });
+      await loadOrders();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to update order status");
+    } finally {
+      setActionBusy(false);
     }
   }
 
@@ -186,6 +248,18 @@ export default function TechnicianDashboard() {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(TECHNICIAN_ONBOARDING_KEY, "1");
       window.dispatchEvent(new Event("technician-onboarding-change"));
+    }
+  }
+
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      router.push("/login");
+      router.refresh();
     }
   }
 
@@ -246,7 +320,11 @@ export default function TechnicianDashboard() {
             <Link href="/customer" className="flex h-9 items-center gap-1 rounded-xl border border-cyan-800 bg-zinc-900 px-2.5 text-[11px] font-semibold text-cyan-300 hover:text-cyan-200">
               <ArrowLeftRight className="h-3.5 w-3.5" /> Customer side
             </Link>
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 hover:text-white">
+            <button
+              type="button"
+              onClick={logout}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 hover:text-white"
+            >
               <LogOut className="h-4 w-4" />
             </button>
           </div>
@@ -275,9 +353,9 @@ export default function TechnicianDashboard() {
         {/* Today stats */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Jobs today", value: "4", icon: Wrench, color: "text-orange-400" },
-            { label: "Earned today", value: "₹1,240", icon: DollarSign, color: "text-emerald-400" },
-            { label: "Avg rating", value: "4.9", icon: Star, color: "text-amber-400" },
+            { label: "Jobs today", value: String(jobsToday), icon: Wrench, color: "text-orange-400" },
+            { label: "Earned today", value: `₹${(earnedToday / 100).toLocaleString("en-IN")}`, icon: DollarSign, color: "text-emerald-400" },
+            { label: "Avg rating", value: avgRating, icon: Star, color: "text-amber-400" },
           ].map(({ label, value, icon: Icon, color }) => (
             <Card key={label} className="bg-zinc-900 border-zinc-800 text-center py-4">
               <Icon className={`mx-auto h-5 w-5 ${color}`} />
@@ -287,8 +365,20 @@ export default function TechnicianDashboard() {
           ))}
         </div>
 
+        {error ? (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300">
+            {error}
+          </div>
+        ) : null}
+
+        {loadingOrders ? (
+          <Card className="bg-zinc-900 border-zinc-800 p-4 text-sm text-zinc-400">
+            Syncing latest bookings...
+          </Card>
+        ) : null}
+
         {/* Incoming job offer */}
-        {incomingJob && (
+        {isOnline && incomingJob && (
           <motion.div
             initial={{ opacity: 0, scale: 0.92, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -302,55 +392,65 @@ export default function TechnicianDashboard() {
                   <span className="text-sm font-bold text-orange-400">New job offer!</span>
                 </div>
                 <p className="font-semibold text-white">{incomingJob.service}</p>
+                <p className="text-xs text-zinc-400">Customer: {incomingJob.customerName}</p>
                 <p className="flex items-center gap-1 text-xs text-zinc-400">
                   <MapPin className="h-3 w-3" /> {incomingJob.address}
                 </p>
-                <p className="flex items-center gap-1 text-xs text-zinc-400">
-                  <Navigation className="h-3 w-3" /> {incomingJob.distanceKm} km away
-                </p>
                 <p className="text-lg font-extrabold text-white">₹{incomingJob.amountInr}</p>
               </div>
-              <div className="relative flex items-center justify-center">
-                <CountdownRing seconds={countdown} total={20} />
-                <span className="absolute text-xl font-extrabold text-orange-400">{countdown}</span>
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800">
+                <Navigation className="h-5 w-5 text-cyan-300" />
               </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <button
                 onClick={acceptJob}
-                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-orange-400"
+                disabled={actionBusy}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-orange-400 disabled:opacity-60"
               >
                 <CheckCircle2 className="h-4 w-4" /> Accept
               </button>
               <button
-                onClick={() => setIncomingJob(null)}
-                className="flex h-12 items-center justify-center gap-2 rounded-xl border border-zinc-700 font-semibold text-zinc-400 hover:bg-zinc-800"
+                onClick={loadOrders}
+                disabled={actionBusy}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl border border-zinc-700 font-semibold text-zinc-400 hover:bg-zinc-800 disabled:opacity-60"
               >
-                Reject
+                Refresh
               </button>
             </div>
           </motion.div>
         )}
 
         {/* Active job */}
-        {activeJob && (
+        {isOnline && activeJob && activeOrder && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl border border-emerald-500/40 bg-zinc-900 p-5 space-y-3"
           >
             <div className="flex items-center gap-2">
-              <Timer className="h-4 w-4 text-emerald-400" />
+              <Navigation className="h-4 w-4 text-emerald-400" />
               <span className="text-sm font-bold text-emerald-400">Active job in progress</span>
             </div>
             <p className="font-semibold text-white">{activeJob.service}</p>
+            <p className="text-xs text-zinc-400">Customer: {activeJob.customerName}</p>
             <p className="flex items-center gap-1 text-xs text-zinc-400">
               <MapPin className="h-3 w-3" /> {activeJob.address}
             </p>
             <div className="flex flex-wrap gap-2 text-xs font-semibold">
               {["navigation", "arrived", "in_progress", "completed"].map((s) => {
-                const reached = ["navigation", "arrived", "in_progress", "completed"].indexOf(s) <=
-                  ["navigation", "arrived", "in_progress", "completed"].indexOf(jobStatus);
+                const flowFromStatus: Record<OrderStatus, "navigation" | "arrived" | "in_progress" | "completed"> = {
+                  PENDING: "navigation",
+                  PENDING_ASSIGNMENT: "navigation",
+                  ASSIGNED: "navigation",
+                  ON_THE_WAY: "navigation",
+                  ARRIVED: "arrived",
+                  IN_PROGRESS: "in_progress",
+                  COMPLETED: "completed",
+                  CANCELED: "navigation",
+                };
+                const current = flowFromStatus[activeOrder.status];
+                const reached = ["navigation", "arrived", "in_progress", "completed"].indexOf(s) <= ["navigation", "arrived", "in_progress", "completed"].indexOf(current);
                 return (
                   <span
                     key={s}
@@ -363,15 +463,23 @@ export default function TechnicianDashboard() {
             </div>
             <Button
               onClick={advanceStatus}
+              disabled={actionBusy || !nextStatus(activeOrder.status)}
               className="w-full"
             >
-              {jobStatus === "navigation" && "I have arrived"}
-              {jobStatus === "arrived" && "Start repair work"}
-              {jobStatus === "in_progress" && "Mark job complete"}
-              {jobStatus === "completed" && "Finish & collect payment"}
+              {activeOrder.status === "ASSIGNED" && "Start travel (On the way)"}
+              {activeOrder.status === "ON_THE_WAY" && "I have arrived"}
+              {activeOrder.status === "ARRIVED" && "Start repair work"}
+              {activeOrder.status === "IN_PROGRESS" && "Mark job complete"}
+              {activeOrder.status === "COMPLETED" && "Job completed"}
             </Button>
           </motion.div>
         )}
+
+        {isOnline && !incomingJob && !activeJob && !loadingOrders ? (
+          <Card className="bg-zinc-900 border-zinc-800 p-4 text-sm text-zinc-400">
+            No new customer bookings right now. This screen updates automatically when a customer books.
+          </Card>
+        ) : null}
 
         {/* Weekly earnings chart */}
         <Card className="bg-zinc-900 border-zinc-800">
