@@ -1,24 +1,34 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
+  BadgeCheck,
   BarChart3,
   CheckCircle2,
   Clock,
   DollarSign,
+  Eye,
+  FileText,
+  Loader2,
   MapPin,
+  Phone,
+  RefreshCw,
   Settings,
   ShieldCheck,
+  ThumbsDown,
+  ThumbsUp,
   Users,
   Wrench,
+  X,
   XCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+// ─── Static data ─────────────────────────────────────────────────────────────
 const KPI_CARDS = [
   { label: "Orders today", value: "48", change: "+12%", icon: Wrench, color: "text-orange-500" },
   { label: "Revenue today", value: "₹14,280", change: "+8%", icon: DollarSign, color: "text-emerald-500" },
@@ -47,20 +57,9 @@ const ORDER_STATUS_STYLE: Record<string, string> = {
   PENDING_ASSIGNMENT: "bg-rose-100 text-rose-700",
 };
 
-import { useEffect } from "react";
-import {
-  BadgeCheck,
-  Eye,
-  FileText,
-  Loader2,
-  Phone,
-  RefreshCw,
-  ThumbsDown,
-  ThumbsUp,
-  X,
-} from "lucide-react";
+const tabs = ["Overview", "Orders", "Technicians", "Verifications", "Pricing", "Analytics"];
 
-// ─── Pending Technician Type ──────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 type PendingTech = {
   id: string;
   verificationStatus: string;
@@ -73,12 +72,11 @@ type PendingTech = {
   bankDetails: { bankName: string; accountName: string } | null;
 };
 
-const tabs = ["Overview", "Orders", "Technicians", "Verifications", "Pricing", "Analytics"];
-
+// ─── Component ───────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("Overview");
 
-  // ── Verifications state
+  // Verifications state
   const [pendingTechs, setPendingTechs] = useState<PendingTech[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [viewingTech, setViewingTech] = useState<PendingTech | null>(null);
@@ -149,46 +147,27 @@ export default function AdminDashboard() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                className={`relative whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition ${
                   activeTab === tab
                     ? "bg-orange-500 text-white"
                     : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
                 }`}
               >
                 {tab}
+                {tab === "Verifications" && pendingTechs.length > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                    {pendingTechs.length}
+                  </span>
+                )}
               </button>
             ))}
-                {/* Tab navigation */}
-                <div className="sticky top-16 z-40 border-b border-zinc-200 bg-white px-4 md:px-8">
-                  <div className="mx-auto max-w-7xl overflow-x-auto">
-                    <div className="flex gap-1 py-2">
-                      {tabs.map((tab) => (
-                        <button
-                          key={tab}
-                          onClick={() => setActiveTab(tab)}
-                          className={`relative whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                            activeTab === tab
-                              ? "bg-orange-500 text-white"
-                              : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-                          }`}
-                        >
-                          {tab}
-                          {tab === "Verifications" && pendingTechs.length > 0 && (
-                            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
-                              {pendingTechs.length}
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
           </div>
         </div>
       </div>
 
+      {/* Main content */}
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8">
-        {/* KPI cards */}
+        {/* KPI cards — always visible */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {KPI_CARDS.map(({ label, value, change, icon: Icon, color }, i) => (
             <motion.div
@@ -211,7 +190,8 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {activeTab === "Overview" || activeTab === "Orders" ? (
+        {/* ── Orders / Overview tab ── */}
+        {(activeTab === "Overview" || activeTab === "Orders") && (
           <Card>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-zinc-900">Live order board</h2>
@@ -268,9 +248,10 @@ export default function AdminDashboard() {
               </table>
             </div>
           </Card>
-        ) : null}
+        )}
 
-        {activeTab === "Overview" || activeTab === "Technicians" ? (
+        {/* ── Technicians / Overview tab ── */}
+        {(activeTab === "Overview" || activeTab === "Technicians") && (
           <Card>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-zinc-900">Technician roster</h2>
@@ -328,8 +309,9 @@ export default function AdminDashboard() {
               </table>
             </div>
           </Card>
-        ) : null}
+        )}
 
+        {/* ── Analytics tab ── */}
         {activeTab === "Analytics" && (
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="space-y-4">
@@ -378,9 +360,10 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* ── Pricing tab ── */}
         {activeTab === "Pricing" && (
           <Card className="space-y-5">
-            <div key="pricing-header" className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-zinc-900">Pricing engine</h2>
               <Button className="h-9 px-4 text-sm">Save changes</Button>
             </div>
@@ -424,18 +407,14 @@ export default function AdminDashboard() {
             </div>
           </Card>
         )}
-      </div>
-    </div>
-  );
-}
 
         {/* ── Verifications tab ── */}
         {activeTab === "Verifications" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-extrabold text-zinc-900">Technician Verifications</h2>
-                <p className="text-sm text-zinc-500">Review and approve pending applications</p>
+                <h2 className="text-lg font-extrabold text-zinc-900">Pending verifications</h2>
+                <p className="text-sm text-zinc-500">Review and approve technician applications.</p>
               </div>
               <button
                 onClick={() => {
@@ -496,7 +475,7 @@ export default function AdminDashboard() {
                         </span>
                       </div>
 
-                      {/* Service info */}
+                      {/* Services */}
                       <div className="flex flex-wrap gap-1.5 text-xs">
                         {tech.serviceMappings.map((m) => (
                           <span
@@ -543,7 +522,7 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {/* Action buttons */}
+                      {/* Actions */}
                       <div className="flex gap-2 pt-1">
                         <button
                           onClick={() => setViewingTech(tech)}
@@ -594,23 +573,33 @@ export default function AdminDashboard() {
           >
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-extrabold text-zinc-900">Technician Profile</h3>
-              <button onClick={() => setViewingTech(null)} className="rounded-full bg-zinc-100 p-1.5 hover:bg-zinc-200">
+              <button
+                onClick={() => setViewingTech(null)}
+                className="rounded-full bg-zinc-100 p-1.5 hover:bg-zinc-200"
+              >
                 <X className="h-4 w-4 text-zinc-600" />
               </button>
             </div>
             <div className="space-y-4 text-sm">
-              {[
-                ["Name", viewingTech.user.name],
-                ["Phone", viewingTech.user.phone],
-                ["Email", viewingTech.user.email || "—"],
-                ["City", viewingTech.user.city?.name ?? "—"],
-                ["Service", viewingTech.serviceMappings.map((m) => m.service.name).join(", ")],
-                ["Experience", `${viewingTech.experienceYears} years`],
-                ["Work Type", viewingTech.workType.replace("_", " ")],
-                ["Bank / Account", viewingTech.bankDetails ? `${viewingTech.bankDetails.bankName} — ${viewingTech.bankDetails.accountName}` : "Not provided"],
-                ["Skills", Array.isArray(viewingTech.skillsJson) ? viewingTech.skillsJson.join(", ") : "—"],
-              ].map(([k, v]) => (
-                <div key={k as string} className="flex gap-2 border-b border-zinc-100 pb-2 last:border-0">
+              {(
+                [
+                  ["Name", viewingTech.user.name],
+                  ["Phone", viewingTech.user.phone],
+                  ["Email", viewingTech.user.email || "—"],
+                  ["City", viewingTech.user.city?.name ?? "—"],
+                  ["Service", viewingTech.serviceMappings.map((m) => m.service.name).join(", ")],
+                  ["Experience", `${viewingTech.experienceYears} years`],
+                  ["Work Type", viewingTech.workType.replace("_", " ")],
+                  [
+                    "Bank / Account",
+                    viewingTech.bankDetails
+                      ? `${viewingTech.bankDetails.bankName} — ${viewingTech.bankDetails.accountName}`
+                      : "Not provided",
+                  ],
+                  ["Skills", Array.isArray(viewingTech.skillsJson) ? viewingTech.skillsJson.join(", ") : "—"],
+                ] as [string, string][]
+              ).map(([k, v]) => (
+                <div key={k} className="flex gap-2 border-b border-zinc-100 pb-2 last:border-0">
                   <span className="w-28 shrink-0 font-semibold text-zinc-500">{k}</span>
                   <span className="text-zinc-800">{v}</span>
                 </div>
@@ -630,7 +619,13 @@ export default function AdminDashboard() {
                       <span className="flex-1 font-medium text-zinc-700">
                         {doc.type.replace("_", " ")}
                       </span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${doc.status === "PENDING" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          doc.status === "PENDING"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
                         {doc.status}
                       </span>
                     </a>
@@ -647,7 +642,10 @@ export default function AdminDashboard() {
                 <ThumbsUp className="h-4 w-4" /> Approve
               </button>
               <button
-                onClick={() => { setRejectTarget(viewingTech.id); setViewingTech(null); }}
+                onClick={() => {
+                  setRejectTarget(viewingTech.id);
+                  setViewingTech(null);
+                }}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-2.5 text-sm font-bold text-red-600 hover:bg-red-100"
               >
                 <ThumbsDown className="h-4 w-4" /> Reject

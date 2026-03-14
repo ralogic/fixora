@@ -7,13 +7,29 @@ import { Card } from "@/components/ui/card";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { BookingStepper } from "@/components/booking/booking-stepper";
 import { ServiceGrid } from "@/components/booking/service-grid";
+import { TechnicianCard, TechnicianCardSkeleton } from "@/components/booking/technician-card";
 import { LocationSelector } from "@/components/location/location-selector";
 import { SavedAddressesList } from "@/components/location/saved-addresses-list";
 import { useCustomerSession } from "@/hooks/use-customer-session";
 import { apiClient } from "@/services/api-client/client";
 import { useBookingStore } from "@/state/modules/booking-store";
 
-const STEPS = ["Service", "Issue", "Location", "Contact", "Confirm"];
+const STEPS = ["Service", "Issue", "Technician", "Location", "Contact", "Confirm"];
+
+type TechnicianOption = {
+  technicianId: string;
+  name: string;
+  serviceCategory: string;
+  experienceYears: number;
+  completedJobs: number;
+  isOnline: boolean;
+  profilePhotoUrl?: string | null;
+  skills: string[];
+  workType: string;
+  distanceKm: number;
+  etaMinutes: number;
+  avgRating: number;
+};
 
 export function BookingFlow() {
   const router = useRouter();
@@ -22,6 +38,9 @@ export function BookingFlow() {
   const [loading, setLoading] = useState(false);
   const [checkingServices, setCheckingServices] = useState(false);
   const [serviceMeta, setServiceMeta] = useState<{ estimatedArrivalTime: number; basePriceInPaise: number } | null>(null);
+  const [technicians, setTechnicians] = useState<TechnicianOption[]>([]);
+  const [loadingTechnicians, setLoadingTechnicians] = useState(false);
+  const [technicianError, setTechnicianError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLocationSelector, setShowLocationSelector] = useState(false);
 
@@ -39,8 +58,36 @@ export function BookingFlow() {
       lng: Number(selectedAddress.lng),
       citySlug: selectedAddress.city?.slug ?? "jaipur",
       zoneId: selectedAddress.zone?.id,
+      preferredTechnicianId: undefined,
     });
   }, [selectedAddress, updateDraft]);
+
+  useEffect(() => {
+    async function loadTechnicians() {
+      if (!draft.serviceId || !draft.lat || !draft.lng) {
+        setTechnicians([]);
+        return;
+      }
+
+      setTechnicianError(null);
+      setLoadingTechnicians(true);
+      try {
+        const result = await apiClient.get<{ city: string; results: TechnicianOption[] }>(
+          `/api/technicians?city=${draft.citySlug ?? "jaipur"}&serviceId=${draft.serviceId}&lat=${draft.lat}&lng=${draft.lng}`,
+        );
+        setTechnicians(result.results ?? []);
+      } catch (requestError) {
+        setTechnicians([]);
+        setTechnicianError(requestError instanceof Error ? requestError.message : "Unable to load technicians right now");
+      } finally {
+        setLoadingTechnicians(false);
+      }
+    }
+
+    if (step === 3) {
+      loadTechnicians();
+    }
+  }, [step, draft.serviceId, draft.lat, draft.lng, draft.citySlug]);
 
   useEffect(() => {
     async function checkServiceAvailability() {
@@ -88,6 +135,7 @@ export function BookingFlow() {
       const result = await apiClient.post<{ orderId: string }>("/api/book-service", {
         customerId: user.id,
         serviceId: draft.serviceId,
+        preferredTechnicianId: draft.preferredTechnicianId,
         issueType: draft.issueType ?? "general",
         issueNotes: draft.issueNotes,
         location: {
@@ -114,7 +162,7 @@ export function BookingFlow() {
 
       {step === 1 ? (
         <ServiceGrid onSelect={(serviceId) => {
-          updateDraft({ serviceId });
+          updateDraft({ serviceId, preferredTechnicianId: undefined });
           setStep(2);
         }} />
       ) : null}
@@ -141,6 +189,54 @@ export function BookingFlow() {
       ) : null}
 
       {step === 3 ? (
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold">Choose your technician</h3>
+            <Button variant="ghost" onClick={() => setStep(4)}>Skip</Button>
+          </div>
+
+          {!selectedAddress ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              Select your address in the next step to get nearby technician matches, or continue and we'll auto-assign the best available pro.
+            </div>
+          ) : null}
+
+          {technicianError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {technicianError}
+            </div>
+          ) : null}
+
+          {loadingTechnicians ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <TechnicianCardSkeleton />
+              <TechnicianCardSkeleton />
+            </div>
+          ) : technicians.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {technicians.map((technician, index) => (
+                <TechnicianCard
+                  key={technician.technicianId}
+                  technician={technician}
+                  index={index}
+                  selected={draft.preferredTechnicianId === technician.technicianId}
+                  onBook={(id) => updateDraft({ preferredTechnicianId: id })}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+              No verified technicians are currently nearby. Continue to auto-dispatch when available.
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button onClick={() => setStep(4)}>Continue</Button>
+          </div>
+        </Card>
+      ) : null}
+
+      {step === 4 ? (
         <Card className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold">Address selection</h3>
@@ -175,12 +271,12 @@ export function BookingFlow() {
             )}
           </div>
           <div className="flex justify-end">
-            <Button onClick={() => setStep(4)} disabled={!selectedAddress}>Continue</Button>
+            <Button onClick={() => setStep(5)} disabled={!selectedAddress}>Continue</Button>
           </div>
         </Card>
       ) : null}
 
-      {step === 4 ? (
+      {step === 5 ? (
         <Card className="space-y-4">
           <h3 className="text-lg font-semibold">Contact details</h3>
           <input
@@ -196,12 +292,12 @@ export function BookingFlow() {
             onChange={(event) => updateDraft({ contactPhone: event.target.value })}
           />
           <div className="flex justify-end">
-            <Button onClick={() => setStep(5)}>Continue</Button>
+            <Button onClick={() => setStep(6)}>Continue</Button>
           </div>
         </Card>
       ) : null}
 
-      {step === 5 ? (
+      {step === 6 ? (
         <BookingConfirmation
           addressLine={selectedAddress?.addressLine}
           etaText={`You are requesting a priority dispatch in Jaipur. Estimated arrival ${serviceMeta?.estimatedArrivalTime ?? 30} mins.`}
@@ -213,7 +309,7 @@ export function BookingFlow() {
       ) : null}
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-zinc-200 bg-white p-3 md:hidden">
-        <Button className="w-full" onClick={submitBooking} disabled={step !== 5 || loading}>
+        <Button className="w-full" onClick={submitBooking} disabled={step !== 6 || loading}>
           {loading ? "Creating order..." : "Book in 30 mins"}
         </Button>
       </div>

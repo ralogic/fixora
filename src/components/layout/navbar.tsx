@@ -17,9 +17,11 @@ export function Navbar() {
   const [showLocationSelector, setShowLocationSelector] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+
   const isLandingPage = pathname === "/";
   const isTechnicianPortal = pathname.startsWith("/technician");
-  const showCustomerControls = !isTechnicianPortal;
+  const isJoinPage = pathname.startsWith("/join");
+  const showCustomerControls = !isTechnicianPortal && !isJoinPage;
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 8);
@@ -61,11 +63,6 @@ export function Navbar() {
             </nav>
 
             <div className="hidden items-center gap-2 md:flex">
-              <Link href="/technician">
-                <Button variant="ghost" className="h-10 px-4 text-sm">
-                  Become a Technician
-                </Button>
-              </Link>
               <Link href="/join">
                 <Button variant="ghost" className="h-10 px-4 text-sm">
                   Become a Technician
@@ -114,9 +111,11 @@ export function Navbar() {
                 ))}
                 <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="h-11 w-full">Book a Technician</Button>
-                                <Link href="/join" onClick={() => setMobileMenuOpen(false)}>
-                                  <Button variant="ghost" className="h-11 w-full border border-slate-200">Become a Technician</Button>
-                                </Link>
+                </Link>
+                <Link href="/join" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="ghost" className="h-11 w-full border border-slate-200">
+                    Become a Technician
+                  </Button>
                 </Link>
               </div>
             </motion.div>
@@ -132,56 +131,69 @@ export function Navbar() {
         initial={{ y: -18, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.45 }}
-        className="sticky top-0 z-50 border-b border-white/30 bg-white/85 backdrop-blur"
+        className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/85 backdrop-blur"
       >
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 md:px-8">
-          <Link href="/" className="flex items-center gap-2 text-zinc-900">
+          <Link href="/" className="flex items-center gap-2 text-slate-900">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white">
               <Wrench className="h-4 w-4" />
             </span>
             <span className="text-lg font-bold tracking-tight">Fixora</span>
-            <span className={`hidden rounded-full px-2.5 py-1 text-[11px] font-semibold md:inline ${isTechnicianPortal ? "bg-cyan-100 text-cyan-700" : "bg-blue-100 text-blue-700"}`}>
-              {isTechnicianPortal ? "Technician portal" : "Customer app"}
+            <span
+              className={`hidden rounded-full px-2.5 py-1 text-[11px] font-semibold md:inline ${
+                isTechnicianPortal
+                  ? "bg-cyan-100 text-cyan-700"
+                  : isJoinPage
+                    ? "bg-indigo-100 text-indigo-700"
+                    : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {isTechnicianPortal ? "Technician portal" : isJoinPage ? "Technician onboarding" : "Customer app"}
             </span>
           </Link>
 
           {showCustomerControls ? (
             <button
               onClick={() => setShowLocationSheet(true)}
-              className="hidden min-w-56 rounded-xl border border-zinc-200 px-3 py-1.5 text-left md:block"
+              className="hidden min-w-56 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-left md:block"
             >
-              <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <MapPin className="h-3.5 w-3.5" /> Deliver to
               </p>
-              <p className="truncate text-sm font-semibold text-zinc-900">
+              <p className="truncate text-sm font-semibold text-slate-900">
                 {loading ? "Locating..." : selectedAddress?.addressLine ?? "Set your location"}
               </p>
             </button>
-          ) : (
+          ) : isTechnicianPortal ? (
             <div className="hidden min-w-56 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-left md:block">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700">Shift center</p>
               <p className="truncate text-sm font-semibold text-cyan-900">Manage orders, earnings and status</p>
             </div>
+          ) : (
+            <div className="hidden min-w-56 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-left md:block">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700">Onboarding</p>
+              <p className="truncate text-sm font-semibold text-indigo-900">Complete profile to get verified</p>
+            </div>
           )}
 
-          <nav className="hidden items-center gap-6 text-sm font-medium text-zinc-600 md:flex">
+          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
             {showCustomerControls ? (
               <>
-                <Link href="/customer" className="hover:text-zinc-900">Home</Link>
-                <Link href="/book" className="hover:text-zinc-900">Book</Link>
-                <Link href="/account/orders" className="hover:text-zinc-900">Orders</Link>
-                <Link href="/track/demo-order" className="hover:text-zinc-900">Track</Link>
-                            <>
-                              <Link href="/customer" className="hover:text-zinc-900">Home</Link>
-                              <Link href="/book" className="hover:text-zinc-900">Book</Link>
-                              <Link href="/customer/dashboard" className="hover:text-zinc-900">Dashboard</Link>
-                              <Link href="/account/orders" className="hover:text-zinc-900">Orders</Link>
-                            </>
+                <Link href="/customer" className="hover:text-slate-900">Home</Link>
+                <Link href="/book" className="hover:text-slate-900">Book</Link>
+                <Link href="/customer/dashboard" className="hover:text-slate-900">Dashboard</Link>
+                <Link href="/account/orders" className="hover:text-slate-900">Orders</Link>
+                <Link href="/track/demo-order" className="hover:text-slate-900">Track</Link>
+              </>
+            ) : isTechnicianPortal ? (
+              <>
+                <Link href="/technician" className="hover:text-slate-900">Dashboard</Link>
+                <Link href="/customer" className="hover:text-slate-900">Customer app</Link>
               </>
             ) : (
               <>
-                <Link href="/technician" className="hover:text-zinc-900">Dashboard</Link>
-                <Link href="/customer" className="hover:text-zinc-900">Customer app</Link>
+                <Link href="/join" className="hover:text-slate-900">Become a Technician</Link>
+                <Link href="/customer" className="hover:text-slate-900">Customer app</Link>
               </>
             )}
           </nav>
@@ -203,13 +215,14 @@ export function Navbar() {
               <Link href="/book">
                 <Button className="h-10 px-4 text-xs md:text-sm">Book in 30 mins</Button>
               </Link>
-            ) : (
+            ) : isTechnicianPortal ? (
               <Link href="/technician">
                 <Button className="h-10 px-3 text-xs md:text-sm">
                   <BriefcaseBusiness className="mr-1 h-3.5 w-3.5" /> Technician dashboard
                 </Button>
               </Link>
-            )}
+            ) : null}
+
             <Link href="/">
               <Button variant="ghost" className="hidden h-10 px-3 text-xs md:inline-flex">
                 <Home className="mr-1 h-3.5 w-3.5" /> Switch portal
@@ -222,8 +235,8 @@ export function Navbar() {
       {showCustomerControls && showLocationSheet ? (
         <div className="premium-overlay fixed inset-0 z-[84]">
           <div className="premium-sheet absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto rounded-t-3xl p-5 md:left-1/2 md:top-1/2 md:h-auto md:w-[560px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl">
-            <h3 className="text-lg font-bold text-zinc-900">Choose delivery location</h3>
-            <p className="mt-1 text-sm text-zinc-500">Saved addresses, current location, or add new.</p>
+            <h3 className="text-lg font-bold text-slate-900">Choose delivery location</h3>
+            <p className="mt-1 text-sm text-slate-500">Saved addresses, current location, or add new.</p>
             <div className="mt-4 space-y-3">
               <SavedAddressesList
                 addresses={addresses}
@@ -251,17 +264,15 @@ export function Navbar() {
       ) : null}
 
       {showCustomerControls ? (
-        <>
-          <LocationSelector
-            open={showLocationSelector}
-            onClose={() => setShowLocationSelector(false)}
-            onSaved={(address) => {
-              setSelectedAddress(address);
-              setShowLocationSelector(false);
-              refresh();
-            }}
-          />
-        </>
+        <LocationSelector
+          open={showLocationSelector}
+          onClose={() => setShowLocationSelector(false)}
+          onSaved={(address) => {
+            setSelectedAddress(address);
+            setShowLocationSelector(false);
+            refresh();
+          }}
+        />
       ) : null}
     </>
   );

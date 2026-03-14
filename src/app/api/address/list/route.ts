@@ -1,5 +1,6 @@
 import { getActiveUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
+import { getPrismaConnectivityMessage } from "@/lib/utils/prisma-error";
 import { fail, ok } from "@/lib/utils/response";
 
 export async function GET() {
@@ -17,6 +18,11 @@ export async function GET() {
 
     return ok({ addresses });
   } catch (error) {
+    const connectivityMessage = getPrismaConnectivityMessage(error);
+    if (connectivityMessage) {
+      return fail(connectivityMessage, 503);
+    }
+
     return fail("Unable to load addresses", 500, error);
   }
 }

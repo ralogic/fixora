@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getActiveUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
 import { resolveZoneByCoordinates } from "@/lib/utils/zones";
+import { getPrismaConnectivityMessage } from "@/lib/utils/prisma-error";
 import { fail, ok } from "@/lib/utils/response";
 
 export async function POST(request: NextRequest) {
@@ -63,6 +64,11 @@ export async function POST(request: NextRequest) {
       zoneConfidence: zoneResolution.confidence,
     });
   } catch (error) {
+    const connectivityMessage = getPrismaConnectivityMessage(error);
+    if (connectivityMessage) {
+      return fail(connectivityMessage, 503);
+    }
+
     return fail("Unable to save address", 500, error);
   }
 }

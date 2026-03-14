@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 
 type BookingDraft = {
   serviceId?: string;
+  preferredTechnicianId?: string;
   issueType?: string;
   issueNotes?: string;
   addressId?: string;

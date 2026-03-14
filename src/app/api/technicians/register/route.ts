@@ -1,8 +1,18 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma/client";
 import { fail, ok } from "@/lib/utils/response";
-import { createClient } from "@/utils/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { WorkType } from "@prisma/client";
 import bcrypt from "bcryptjs";
+
+function getStorageClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  // Use service role key for server-side uploads if available, else fall back to publishable key
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
+  return createSupabaseClient(url, key);
+}
 
 /**
  * POST /api/technicians/register
@@ -33,6 +43,12 @@ export async function POST(request: NextRequest) {
     const professional = JSON.parse(formData.get("professional") as string);
     const locationData = JSON.parse(formData.get("location") as string);
     const banking = JSON.parse(formData.get("banking") as string);
+    const normalizedWorkType =
+      professional.workType === WorkType.HOME_SERVICE ||
+      professional.workType === WorkType.SHOP ||
+      professional.workType === WorkType.BOTH
+        ? (professional.workType as WorkType)
+        : WorkType.HOME_SERVICE;
 
     // ─── Basic server-side validation ───────────────────────────────────────
     if (!personal?.phone || !personal?.name || !personal?.password) {
@@ -77,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Upload documents to Supabase Storage ────────────────────────────────
-    const supabase = await createClient();
+    const supabase = getStorageClient();
     const docFields = ["aadhaar", "pan", "profilePhoto", "certificate"] as const;
     const uploadedUrls: Partial<Record<(typeof docFields)[number], string>> = {};
 
@@ -140,7 +156,7 @@ export async function POST(request: NextRequest) {
           experienceYears: parseInt(professional.experienceYears, 10) || 0,
           skillsJson: professional.skills ?? [],
           toolsAvailable: professional.toolsAvailable ?? false,
-          workType: (professional.workType as string) ?? "HOME_SERVICE",
+          workType: normalizedWorkType,
           bio: professional.bio || null,
           profilePhotoUrl: uploadedUrls.profilePhoto ?? null,
           onboardingStep: 5,
@@ -192,7 +208,7 @@ export async function POST(request: NextRequest) {
         technicianId: result.technicianId,
         message: "Registration successful. Your profile is under review.",
       },
-      201,
+      { status: 201 },
     );
   } catch (error) {
     return fail("Registration failed", 500, error);

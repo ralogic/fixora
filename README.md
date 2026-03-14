@@ -106,8 +106,6 @@ npm run socket:dev
 
 ## Implementation Package
 - [Implementation index](docs/IMPLEMENTATION_PACKAGE.md)
-- [Prisma schema v2 draft](prisma/schema.v2-draft.prisma)
 - [API contract](docs/API_CONTRACT.md)
-- [Dispatch and Redis design](docs/DISPATCH_AND_REDIS.md)
-- [12-week roadmap](docs/ROADMAP_12_WEEKS.md)
-- [Day-0 compression execution plan](docs/DAY0_EXECUTION_PLAN.md)
+- [Platform architecture](docs/FIXORA_PLATFORM_ARCHITECTURE.md)
+- [Prisma schema v2 draft](prisma/schema.v2-draft.prisma)

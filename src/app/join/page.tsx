@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef, useState } from "react";
@@ -29,7 +29,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { apiClient } from "@/services/api-client/client";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 type PersonalForm = {
   name: string;
@@ -75,17 +75,17 @@ type BankingForm = {
   upiId: string;
 };
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Constants ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const SERVICE_CATEGORIES = [
-  { value: "electrician", label: "Electrician", icon: "⚡" },
-  { value: "plumber", label: "Plumber", icon: "🔧" },
-  { value: "ac-repair", label: "AC Repair", icon: "❄️" },
-  { value: "appliance", label: "Appliance Repair", icon: "🔌" },
-  { value: "carpenter", label: "Carpenter", icon: "🪚" },
-  { value: "mobile-repair", label: "Mobile Repair", icon: "📱" },
-  { value: "painter", label: "Painter", icon: "🖌️" },
-  { value: "cleaner", label: "Deep Cleaner", icon: "🧹" },
+  { value: "electrician", label: "Electrician", icon: "ΓÜí" },
+  { value: "plumber", label: "Plumber", icon: "≡ƒöº" },
+  { value: "ac-repair", label: "AC Repair", icon: "Γ¥ä∩╕Å" },
+  { value: "appliance", label: "Appliance Repair", icon: "≡ƒöî" },
+  { value: "carpenter", label: "Carpenter", icon: "≡ƒ¬Ü" },
+  { value: "mobile-repair", label: "Mobile Repair", icon: "≡ƒô▒" },
+  { value: "painter", label: "Painter", icon: "≡ƒûî∩╕Å" },
+  { value: "cleaner", label: "Deep Cleaner", icon: "≡ƒº╣" },
 ];
 
 const SKILL_OPTIONS: Record<string, string[]> = {
@@ -110,15 +110,19 @@ const STEPS = [
   { id: 5, label: "Banking", icon: Banknote },
 ];
 
-// ─── Slide variants ───────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Slide variants ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const },
+  },
   exit: (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0, transition: { duration: 0.25 } }),
 };
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Main component ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export default function JoinPage() {
   const [step, setStep] = useState(1);
@@ -172,7 +176,7 @@ export default function JoinPage() {
     upiId: "",
   });
 
-  // ─── Navigation ─────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇ Navigation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   function goNext() {
     const errs = validateStep(step);
@@ -191,7 +195,7 @@ export default function JoinPage() {
     setStep((s) => Math.max(s - 1, 1));
   }
 
-  // ─── Validation ──────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇ Validation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   function validateStep(s: number): Record<string, string> {
     const e: Record<string, string> = {};
@@ -225,7 +229,7 @@ export default function JoinPage() {
     return e;
   }
 
-  // ─── File upload handler ──────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇ File upload handler ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   function handleFileChange(
     field: keyof Pick<DocumentForm, "aadhaar" | "pan" | "profilePhoto" | "certificate">,
@@ -254,7 +258,7 @@ export default function JoinPage() {
     setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
   }
 
-  // ─── Submit ─────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇ Submit ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   async function handleSubmit() {
     const errs = validateStep(5);
@@ -283,7 +287,7 @@ export default function JoinPage() {
     }
   }
 
-  // ─── Skill toggle ─────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇ Skill toggle ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   function toggleSkill(skill: string) {
     setProfessional((p) => ({
@@ -294,28 +298,28 @@ export default function JoinPage() {
     }));
   }
 
-  // ─── Success screen ───────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇ Success screen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-orange-50 via-white to-amber-50 px-4 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-cyan-50 px-4 text-center">
         <motion.div
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 18 }}
           className="flex flex-col items-center gap-6"
         >
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-amber-400 shadow-2xl shadow-orange-200">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 shadow-2xl shadow-blue-200">
             <CheckCircle2 className="h-12 w-12 text-white" />
           </div>
           <div>
             <h1 className="text-3xl font-extrabold text-zinc-900">Application submitted!</h1>
             <p className="mt-3 max-w-sm text-zinc-500">
-              Our team will verify your documents within <strong>24–48 hours</strong>. You'll receive an SMS on{" "}
+              Our team will verify your documents within <strong>24ΓÇô48 hours</strong>. You'll receive an SMS on{" "}
               <strong>{personal.phone}</strong> once approved.
             </p>
           </div>
-          <div className="flex flex-col gap-2 rounded-2xl border border-orange-100 bg-white p-5 shadow-lg w-full max-w-sm text-left">
+          <div className="flex flex-col gap-2 rounded-2xl border border-blue-100 bg-white p-5 shadow-lg w-full max-w-sm text-left">
             {[
               ["Name", personal.name],
               ["Service", SERVICE_CATEGORIES.find((c) => c.value === professional.serviceCategory)?.label ?? ""],
@@ -330,7 +334,7 @@ export default function JoinPage() {
           </div>
           <Link
             href="/"
-            className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-3 font-bold text-white shadow-lg shadow-orange-200 transition hover:opacity-90"
+            className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-8 py-3 font-bold text-white shadow-lg shadow-blue-200 transition hover:opacity-90"
           >
             Back to home
           </Link>
@@ -340,16 +344,16 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50">
-      {/* ─── Header ── */}
-      <header className="sticky top-0 z-40 border-b border-orange-100 bg-white/80 backdrop-blur-md">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+      {/* ΓöÇΓöÇΓöÇ Header ΓöÇΓöÇ */}
+      <header className="sticky top-0 z-40 border-b border-blue-100 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500">
               <Zap className="h-4 w-4 text-white" />
             </div>
             <span className="text-xl font-extrabold text-zinc-900">
-              Fixora <span className="text-orange-500">Pro</span>
+              Fixora <span className="text-blue-700">Pro</span>
             </span>
           </Link>
           <Link href="/customer" className="text-sm font-medium text-zinc-500 hover:text-zinc-900 transition">
@@ -359,20 +363,20 @@ export default function JoinPage() {
       </header>
 
       <div className="mx-auto max-w-3xl px-4 py-8 pb-24">
-        {/* ─── Hero strip ── */}
+        {/* ΓöÇΓöÇΓöÇ Hero strip ΓöÇΓöÇ */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 p-6 text-white shadow-xl shadow-orange-200"
+          className="mb-8 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 p-6 text-white shadow-xl shadow-blue-200"
         >
           <h1 className="text-2xl font-extrabold md:text-3xl">Become a Fixora Technician</h1>
-          <p className="mt-1 text-orange-100">
-            Earn ₹30,000–₹70,000 / month · Flexible hours · 10,000+ jobs available
+          <p className="mt-1 text-cyan-100">
+            Earn Γé╣30,000ΓÇôΓé╣70,000 / month ┬╖ Flexible hours ┬╖ 10,000+ jobs available
           </p>
           <div className="mt-4 flex flex-wrap gap-4 text-sm">
             {[
               { icon: Shield, text: "Verified badge" },
-              { icon: Star, text: "₹0 joining fee" },
+              { icon: Star, text: "Γé╣0 joining fee" },
               { icon: Zap, text: "Same-day payouts" },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1">
@@ -383,7 +387,7 @@ export default function JoinPage() {
           </div>
         </motion.div>
 
-        {/* ─── Progress bar ── */}
+        {/* ΓöÇΓöÇΓöÇ Progress bar ΓöÇΓöÇ */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             {STEPS.map(({ id, label, icon: StepIcon }, i) => (
@@ -392,14 +396,14 @@ export default function JoinPage() {
                   {i > 0 && (
                     <div
                       className={`h-0.5 flex-1 transition-colors duration-500 ${
-                        step > id - 1 ? "bg-orange-400" : "bg-zinc-200"
+                        step > id - 1 ? "bg-blue-500" : "bg-zinc-200"
                       }`}
                     />
                   )}
                   <motion.div
                     animate={{
                       scale: step === id ? 1.15 : 1,
-                      backgroundColor: step > id ? "#f97316" : step === id ? "#f97316" : "#e4e4e7",
+                      backgroundColor: step > id ? "#2563eb" : step === id ? "#2563eb" : "#e4e4e7",
                     }}
                     transition={{ duration: 0.3 }}
                     className="relative z-10 mx-auto flex h-9 w-9 items-center justify-center rounded-full shadow-sm"
@@ -413,14 +417,14 @@ export default function JoinPage() {
                   {i < STEPS.length - 1 && (
                     <div
                       className={`h-0.5 flex-1 transition-colors duration-500 ${
-                        step > id ? "bg-orange-400" : "bg-zinc-200"
+                        step > id ? "bg-blue-500" : "bg-zinc-200"
                       }`}
                     />
                   )}
                 </div>
                 <span
                   className={`mt-1.5 hidden text-xs font-semibold md:block transition-colors ${
-                    step === id ? "text-orange-500" : step > id ? "text-orange-400" : "text-zinc-400"
+                    step === id ? "text-blue-700" : step > id ? "text-blue-500" : "text-zinc-400"
                   }`}
                 >
                   {label}
@@ -430,17 +434,17 @@ export default function JoinPage() {
           </div>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400"
+              className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-500"
               animate={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }}
               transition={{ duration: 0.5, ease: "easeOut" }}
             />
           </div>
           <p className="mt-2 text-center text-xs text-zinc-400">
-            Step {step} of {STEPS.length} — {STEPS[step - 1].label}
+            Step {step} of {STEPS.length} ΓÇö {STEPS[step - 1].label}
           </p>
         </div>
 
-        {/* ─── Step card ── */}
+        {/* ΓöÇΓöÇΓöÇ Step card ΓöÇΓöÇ */}
         <div className="overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl shadow-zinc-100">
           <AnimatePresence mode="wait" custom={dir}>
             <motion.div
@@ -452,7 +456,7 @@ export default function JoinPage() {
               exit="exit"
               className="p-6 md:p-8"
             >
-              {/* ─── Step 1: Personal Info ── */}
+              {/* ΓöÇΓöÇΓöÇ Step 1: Personal Info ΓöÇΓöÇ */}
               {step === 1 && (
                 <div className="space-y-5">
                   <StepHeader
@@ -537,7 +541,7 @@ export default function JoinPage() {
                 </div>
               )}
 
-              {/* ─── Step 2: Professional Details ── */}
+              {/* ΓöÇΓöÇΓöÇ Step 2: Professional Details ΓöÇΓöÇ */}
               {step === 2 && (
                 <div className="space-y-5">
                   <StepHeader
@@ -562,8 +566,8 @@ export default function JoinPage() {
                           }}
                           className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-sm font-semibold transition ${
                             professional.serviceCategory === value
-                              ? "border-orange-500 bg-orange-50 text-orange-700"
-                              : "border-zinc-200 text-zinc-600 hover:border-orange-300 hover:bg-orange-50/50"
+                              ? "border-blue-600 bg-blue-50 text-blue-700"
+                              : "border-zinc-200 text-zinc-600 hover:border-blue-300 hover:bg-blue-50/50"
                           }`}
                         >
                           <span className="text-2xl">{icon}</span>
@@ -585,7 +589,7 @@ export default function JoinPage() {
                         className={fieldCls(!!errors.experienceYears)}
                       >
                         <option value="">Select experience</option>
-                        {["Less than 1", "1", "2", "3", "4", "5", "6–10", "10+"].map((v) => (
+                        {["Less than 1", "1", "2", "3", "4", "5", "6ΓÇô10", "10+"].map((v) => (
                           <option key={v} value={v}>{v} year{v !== "Less than 1" ? "s" : ""}</option>
                         ))}
                       </select>
@@ -629,8 +633,8 @@ export default function JoinPage() {
                             onClick={() => toggleSkill(skill)}
                             className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
                               professional.skills.includes(skill)
-                                ? "border-orange-500 bg-orange-500 text-white"
-                                : "border-zinc-200 text-zinc-600 hover:border-orange-300"
+                                ? "border-blue-600 bg-blue-600 text-white"
+                                : "border-zinc-200 text-zinc-600 hover:border-blue-300"
                             }`}
                           >
                             {skill}
@@ -650,10 +654,10 @@ export default function JoinPage() {
                       onChange={(e) =>
                         setProfessional({ ...professional, toolsAvailable: e.target.checked })
                       }
-                      className="h-4 w-4 accent-orange-500"
+                      className="h-4 w-4 accent-blue-600"
                     />
                     <label htmlFor="tools" className="cursor-pointer text-sm text-zinc-700">
-                      <span className="font-semibold">I have my own tools</span> — I carry all required
+                      <span className="font-semibold">I have my own tools</span> ΓÇö I carry all required
                       equipment to job sites
                     </label>
                   </div>
@@ -668,13 +672,13 @@ export default function JoinPage() {
                       onChange={(e) => setProfessional({ ...professional, bio: e.target.value })}
                       placeholder="Tell customers a little about your experience..."
                       rows={3}
-                      className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-800 placeholder-zinc-400 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                      className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-800 placeholder-zinc-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
                 </div>
               )}
 
-              {/* ─── Step 3: Documents ── */}
+              {/* ΓöÇΓöÇΓöÇ Step 3: Documents ΓöÇΓöÇ */}
               {step === 3 && (
                 <div className="space-y-5">
                   <StepHeader
@@ -686,7 +690,7 @@ export default function JoinPage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <DocUploadCard
                       label="Aadhaar Card *"
-                      description="Front side · JPG/PNG/PDF"
+                      description="Front side ┬╖ JPG/PNG/PDF"
                       field="aadhaar"
                       preview={documents.aadhaarPreview}
                       file={documents.aadhaar}
@@ -698,7 +702,7 @@ export default function JoinPage() {
                     />
                     <DocUploadCard
                       label="PAN Card *"
-                      description="Clear photo · JPG/PNG/PDF"
+                      description="Clear photo ┬╖ JPG/PNG/PDF"
                       field="pan"
                       preview={documents.panPreview}
                       file={documents.pan}
@@ -710,7 +714,7 @@ export default function JoinPage() {
                     />
                     <DocUploadCard
                       label="Profile Photo *"
-                      description="Clear face photo · JPG/PNG"
+                      description="Clear face photo ┬╖ JPG/PNG"
                       field="profilePhoto"
                       preview={documents.profilePhotoPreview}
                       file={documents.profilePhoto}
@@ -727,7 +731,7 @@ export default function JoinPage() {
                     />
                     <DocUploadCard
                       label="Skill Certificate"
-                      description="Optional · Diploma / ITI"
+                      description="Optional ┬╖ Diploma / ITI"
                       field="certificate"
                       preview={documents.certificatePreview}
                       file={documents.certificate}
@@ -754,7 +758,7 @@ export default function JoinPage() {
                 </div>
               )}
 
-              {/* ─── Step 4: Location ── */}
+              {/* ΓöÇΓöÇΓöÇ Step 4: Location ΓöÇΓöÇ */}
               {step === 4 && (
                 <div className="space-y-5">
                   <StepHeader
@@ -778,8 +782,8 @@ export default function JoinPage() {
                           }}
                           className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition ${
                             location.city === c
-                              ? "border-orange-500 bg-orange-50 text-orange-700"
-                              : "border-zinc-200 text-zinc-600 hover:border-orange-300"
+                              ? "border-blue-600 bg-blue-50 text-blue-700"
+                              : "border-zinc-200 text-zinc-600 hover:border-blue-300"
                           }`}
                         >
                           {c}
@@ -794,7 +798,7 @@ export default function JoinPage() {
                   {/* Radius */}
                   <div className="space-y-3">
                     <label className="text-sm font-semibold text-zinc-700">
-                      Service Radius — <span className="text-orange-500">{location.radiusKm} km</span>
+                      Service Radius ΓÇö <span className="text-blue-700">{location.radiusKm} km</span>
                     </label>
                     <div className="flex gap-3">
                       {RADII.map((r) => (
@@ -805,8 +809,8 @@ export default function JoinPage() {
                           onClick={() => setLocation({ ...location, radiusKm: r })}
                           className={`flex-1 rounded-xl border-2 py-2.5 text-sm font-bold transition ${
                             location.radiusKm === r
-                              ? "border-orange-500 bg-orange-500 text-white"
-                              : "border-zinc-200 text-zinc-600 hover:border-orange-300"
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-zinc-200 text-zinc-600 hover:border-blue-300"
                           }`}
                         >
                           {r} km
@@ -815,7 +819,7 @@ export default function JoinPage() {
                     </div>
                     <div className="h-2 rounded-full bg-zinc-100">
                       <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-orange-400 to-amber-400"
+                        className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-500"
                         animate={{ width: `${(RADII.indexOf(location.radiusKm) + 1) / RADII.length * 100}%` }}
                         transition={{ duration: 0.3 }}
                       />
@@ -829,7 +833,7 @@ export default function JoinPage() {
                   <div className="overflow-hidden rounded-2xl border border-zinc-200">
                     <div className="relative flex h-52 items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50">
                       <div className="text-center">
-                        <MapPin className="mx-auto h-10 w-10 text-orange-400" />
+                        <MapPin className="mx-auto h-10 w-10 text-blue-500" />
                         <p className="mt-2 text-sm font-semibold text-zinc-600">
                           {location.city
                             ? `Showing coverage in ${location.city} (${location.radiusKm} km)`
@@ -844,7 +848,7 @@ export default function JoinPage() {
                 </div>
               )}
 
-              {/* ─── Step 5: Banking ── */}
+              {/* ΓöÇΓöÇΓöÇ Step 5: Banking ΓöÇΓöÇ */}
               {step === 5 && (
                 <div className="space-y-5">
                   <StepHeader
@@ -899,7 +903,7 @@ export default function JoinPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">
+                  <div className="flex items-start gap-3 rounded-xl border border-cyan-100 bg-cyan-50 p-4 text-sm text-cyan-700">
                     <Lock className="mt-0.5 h-4 w-4 shrink-0" />
                     <p>
                       Bank details are end-to-end encrypted. Payouts are processed within 3 business days
@@ -914,11 +918,11 @@ export default function JoinPage() {
                       {[
                         ["Name", personal.name],
                         ["Phone", personal.phone],
-                        ["Service", SERVICE_CATEGORIES.find((c) => c.value === professional.serviceCategory)?.label ?? "—"],
-                        ["Experience", professional.experienceYears ? `${professional.experienceYears} years` : "—"],
+                        ["Service", SERVICE_CATEGORIES.find((c) => c.value === professional.serviceCategory)?.label ?? "ΓÇö"],
+                        ["Experience", professional.experienceYears ? `${professional.experienceYears} years` : "ΓÇö"],
                         ["City", location.city || personal.city],
                         ["Radius", `${location.radiusKm} km`],
-                        ["Skills", professional.skills.join(", ") || "—"],
+                        ["Skills", professional.skills.join(", ") || "ΓÇö"],
                         ["Documents", [documents.aadhaar && "Aadhaar", documents.pan && "PAN", documents.profilePhoto && "Photo", documents.certificate && "Certificate"].filter(Boolean).join(", ")],
                       ].map(([k, v]) => (
                         <div key={k as string} className="flex justify-between">
@@ -937,7 +941,7 @@ export default function JoinPage() {
             </motion.div>
           </AnimatePresence>
 
-          {/* ─── Navigation buttons ── */}
+          {/* ΓöÇΓöÇΓöÇ Navigation buttons ΓöÇΓöÇ */}
           <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-4 md:px-8">
             <button
               type="button"
@@ -954,7 +958,7 @@ export default function JoinPage() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={goNext}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-200 transition hover:opacity-90"
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:opacity-90"
               >
                 Continue <ArrowRight className="h-4 w-4" />
               </motion.button>
@@ -965,12 +969,12 @@ export default function JoinPage() {
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-200 transition hover:opacity-90 disabled:opacity-60"
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:opacity-90 disabled:opacity-60"
               >
                 {loading ? (
                   <>
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Submitting…
+                    SubmittingΓÇª
                   </>
                 ) : (
                   <>
@@ -987,7 +991,7 @@ export default function JoinPage() {
   );
 }
 
-// ─── Reusable sub-components ──────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Reusable sub-components ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 function fieldCls(hasError: boolean) {
   return `w-full rounded-xl border ${
@@ -1006,7 +1010,7 @@ function StepHeader({
 }) {
   return (
     <div className="flex items-start gap-4 pb-2">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-amber-400">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500">
         <Icon className="h-5 w-5 text-white" />
       </div>
       <div>
@@ -1087,7 +1091,7 @@ function DocUploadCard({
       </label>
 
       {file ? (
-        <div className="relative overflow-hidden rounded-xl border-2 border-orange-300 bg-orange-50">
+        <div className="relative overflow-hidden rounded-xl border-2 border-blue-300 bg-blue-50">
           {preview ? (
             <div className={`relative ${isPhoto ? "h-36" : "h-28"} w-full`}>
               <Image
@@ -1099,7 +1103,7 @@ function DocUploadCard({
             </div>
           ) : (
             <div className="flex h-28 items-center justify-center gap-2 text-sm text-zinc-600">
-              <FileText className="h-5 w-5 text-orange-400" />
+              <FileText className="h-5 w-5 text-blue-500" />
               <span className="max-w-[160px] truncate">{file.name}</span>
             </div>
           )}
@@ -1110,7 +1114,7 @@ function DocUploadCard({
           >
             <X className="h-3.5 w-3.5 text-zinc-600" />
           </button>
-          <div className="flex items-center gap-1.5 border-t border-orange-200 px-3 py-1.5 text-xs text-orange-600">
+          <div className="flex items-center gap-1.5 border-t border-blue-200 px-3 py-1.5 text-xs text-blue-700">
             <CheckCircle2 className="h-3.5 w-3.5" />
             {file.name}
           </div>
@@ -1124,7 +1128,7 @@ function DocUploadCard({
           className={`flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed py-8 transition ${
             error
               ? "border-red-300 bg-red-50 text-red-500"
-              : "border-zinc-200 text-zinc-400 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-500"
+              : "border-zinc-200 text-zinc-400 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
           }`}
         >
           <Upload className="h-6 w-6" />

@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma/client";
 import { fail, ok } from "@/lib/utils/response";
+import {
+  approveTechnicianApplication,
+  TechnicianVerificationError,
+} from "@/server/modules/admin/verifications";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,30 +17,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function PATCH(_request: NextRequest, context: Params) {
   try {
     const { id } = await context.params;
-
-    const technician = await prisma.technician.findUnique({
-      where: { id },
-      include: { user: true },
-    });
-
-    if (!technician) {
-      return fail("Technician not found", 404);
-    }
-    if (technician.verificationStatus === "VERIFIED") {
-      return fail("Technician is already verified", 409);
-    }
-
-    const updated = await prisma.technician.update({
-      where: { id },
-      data: { verificationStatus: "VERIFIED", rejectionNote: null },
-      include: { user: { select: { name: true, phone: true } } },
-    });
-
-    // Also approve all PENDING documents
-    await prisma.technicianDocument.updateMany({
-      where: { technicianId: id, status: "PENDING" },
-      data: { status: "APPROVED" },
-    });
+    const updated = await approveTechnicianApplication(id);
 
     return ok({
       technicianId: updated.id,
@@ -45,6 +25,10 @@ export async function PATCH(_request: NextRequest, context: Params) {
       verificationStatus: updated.verificationStatus,
     });
   } catch (error) {
+    if (error instanceof TechnicianVerificationError) {
+      return fail(error.message, error.statusCode);
+    }
+
     return fail("Approval failed", 500, error);
   }
 }

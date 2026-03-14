@@ -1,18 +1,6 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma/client";
-import { calculateDistanceKm, calculateMatchingScore, estimateEtaMinutes } from "@/lib/utils/distance";
 import { fail, ok } from "@/lib/utils/response";
-
-type RankedTechnician = {
-  technicianId: string;
-  name: string;
-  distanceKm: number;
-  etaMinutes: number;
-  avgRating: number;
-  acceptanceRate: number;
-  activeJobs: number;
-  matchingScore: number;
-};
+import { getRankedTechnicianCandidates } from "@/server/modules/technicians/search";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,64 +14,18 @@ export async function GET(request: NextRequest) {
       return fail("city, serviceId, lat, lng are required", 422);
     }
 
-    const city = await prisma.city.findUnique({ where: { slug: citySlug } });
-    if (!city) {
+    const rankedSearch = await getRankedTechnicianCandidates({
+      citySlug,
+      serviceId,
+      lat,
+      lng,
+    });
+
+    if (!rankedSearch) {
       return fail("City not found", 404);
     }
 
-    const technicians = await prisma.technician.findMany({
-      where: {
-        isOnline: true,
-        verificationStatus: "VERIFIED",
-        primaryCityId: city.id,
-        serviceMappings: {
-          some: {
-            serviceId,
-          },
-        },
-      },
-      include: {
-        user: true,
-        orders: {
-          where: {
-            status: {
-              in: ["ASSIGNED", "ON_THE_WAY", "ARRIVED", "IN_PROGRESS"],
-            },
-          },
-          select: { id: true },
-        },
-      },
-      take: 50,
-    });
-
-    const ranked: RankedTechnician[] = technicians
-      .filter((tech: (typeof technicians)[number]) => tech.currentLat && tech.currentLng)
-      .map((tech: (typeof technicians)[number]) => {
-        const distanceKm = calculateDistanceKm(
-          { lat: Number(tech.currentLat), lng: Number(tech.currentLng) },
-          { lat, lng },
-        );
-
-        return {
-          technicianId: tech.id,
-          name: tech.user.name,
-          distanceKm,
-          etaMinutes: estimateEtaMinutes(distanceKm),
-          avgRating: tech.avgRating,
-          acceptanceRate: tech.acceptanceRate,
-          activeJobs: tech.orders.length,
-          matchingScore: calculateMatchingScore({
-            distanceKm,
-            acceptanceRate: tech.acceptanceRate,
-            avgRating: tech.avgRating,
-            activeJobs: tech.orders.length,
-          }),
-        };
-      })
-      .sort((a: RankedTechnician, b: RankedTechnician) => a.matchingScore - b.matchingScore)
-      .slice(0, 10);
-
-    return ok({ city: city.slug, results: ranked });
+    return ok({ city: rankedSearch.citySlug, results: rankedSearch.results });
   } catch (error) {
     return fail("Unable to load technicians", 500, error);
   }
