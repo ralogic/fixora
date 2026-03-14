@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { LocateFixed, MapPinned } from "lucide-react";
 import { apiClient } from "@/services/api-client/client";
+import { saveGuestAddress } from "@/lib/utils/guest-address";
 import { Button } from "@/components/ui/button";
 import { AddressSearch } from "@/components/location/address-search";
 import { MapPinSelector } from "@/components/location/map-pin-selector";
@@ -84,6 +85,25 @@ export function LocationSelector({ open, onClose, onSaved }: Props) {
       onClose();
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "Unable to save address";
+
+      if (message.includes("Database unavailable")) {
+        const fallbackAddress = saveGuestAddress({
+          label: label as SavedAddress["label"],
+          addressLine,
+          landmark: landmark || null,
+          floor: floor || null,
+          lat,
+          lng,
+          city: { id: "guest-jaipur", name: "Jaipur", slug: "jaipur" },
+          zone: null,
+        });
+
+        setZoneConfidence("local");
+        onSaved(fallbackAddress);
+        onClose();
+        return;
+      }
+
       setError(message);
     } finally {
       setLoading(false);

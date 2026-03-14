@@ -3,9 +3,16 @@ import { prisma } from "@/lib/prisma/client";
 import { stripe } from "@/lib/stripe/client";
 import { fail, ok } from "@/lib/utils/response";
 import { createPaymentIntentSchema } from "@/lib/validation/booking";
+import { AuthorizationError, requireRole } from "@/server/shared/authz";
+import { enforceSameOrigin } from "@/lib/security/csrf";
 
 export async function POST(request: NextRequest) {
   try {
+    if (!enforceSameOrigin(request)) {
+      return fail("Invalid request origin", 403);
+    }
+
+    const user = await requireRole("CUSTOMER");
     const body = await request.json();
     const parsed = createPaymentIntentSchema.safeParse(body);
 
@@ -20,7 +27,15 @@ export async function POST(request: NextRequest) {
       return fail("Order not found", 404);
     }
 
+    if (order.customerId !== user.id) {
+      return fail("Forbidden", 403);
+    }
+
     if (!stripe) {
+      if (process.env.NODE_ENV === "production") {
+        return fail("Stripe is not configured", 503);
+      }
+
       const devIntentId = `dev_intent_${orderId}`;
       await prisma.payment.upsert({
         where: { orderId },
@@ -73,6 +88,9 @@ export async function POST(request: NextRequest) {
 
     return ok({ clientSecret: intent.client_secret, paymentIntentId: intent.id });
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return fail(error.message, error.statusCode);
+    }
     return fail("Unable to create payment intent", 500, error);
   }
 }

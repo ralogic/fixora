@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "@/services/api-client/client";
+import { LOCAL_GUEST_USER, loadGuestAddresses } from "@/lib/utils/guest-address";
 import type { SavedAddress, SessionUser } from "@/types/customer";
 
 const ADDRESS_KEY = "fixora_selected_address";
@@ -31,9 +32,18 @@ export function useCustomerSession() {
         setSelectedAddressState(addressResult.addresses[0] ?? null);
       }
     } catch {
-      setUser(null);
-      setAddresses([]);
-      setSelectedAddressState(null);
+      const fallbackAddresses = loadGuestAddresses();
+      setUser(LOCAL_GUEST_USER);
+      setAddresses(fallbackAddresses);
+
+      const stored = typeof window !== "undefined" ? window.localStorage.getItem(ADDRESS_KEY) : null;
+      if (stored) {
+        const parsed = JSON.parse(stored) as SavedAddress;
+        const exists = fallbackAddresses.find((address) => address.id === parsed.id);
+        setSelectedAddressState(exists ?? fallbackAddresses[0] ?? null);
+      } else {
+        setSelectedAddressState(fallbackAddresses[0] ?? null);
+      }
     } finally {
       setLoading(false);
     }

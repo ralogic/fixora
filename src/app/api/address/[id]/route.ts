@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { getActiveUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
 import { fail, ok } from "@/lib/utils/response";
+import { AuthorizationError, requireRole } from "@/server/shared/authz";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -9,7 +9,7 @@ type Params = {
 
 export async function DELETE(_request: NextRequest, context: Params) {
   try {
-    const user = await getActiveUser();
+    const user = await requireRole("CUSTOMER");
 
     const { id } = await context.params;
     const address = await prisma.address.findUnique({ where: { id } });
@@ -21,6 +21,9 @@ export async function DELETE(_request: NextRequest, context: Params) {
     await prisma.address.delete({ where: { id } });
     return ok({ deleted: true });
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return fail(error.message, error.statusCode);
+    }
     return fail("Unable to delete address", 500, error);
   }
 }

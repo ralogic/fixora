@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma/client";
 import type { BookingCreationResult, BookingRequest } from "@/types/domain";
 import { getRankedTechnicianCandidates, pickDispatchCandidate } from "@/server/modules/technicians/search";
+import { createNotification } from "@/server/modules/notifications/service";
 
 export class BookingCreationError extends Error {
   constructor(
@@ -87,6 +88,16 @@ export async function createBooking(input: BookingRequest): Promise<BookingCreat
             : []),
         ],
       },
+      ...(selectedCandidate
+        ? {
+            assignmentAttempts: {
+              create: {
+                technicianId: selectedCandidate.technicianId,
+                response: null,
+              },
+            },
+          }
+        : {}),
     },
     include: {
       technician: {
@@ -94,6 +105,22 @@ export async function createBooking(input: BookingRequest): Promise<BookingCreat
       },
     },
   });
+
+  await createNotification({
+    userId: order.customerId,
+    type: "BOOKING_CONFIRMED",
+    message: "Your booking request has been created successfully.",
+    payload: { orderId: order.id, status: order.status },
+  });
+
+  if (selectedCandidate) {
+    await createNotification({
+      userId: selectedCandidate.technicianId,
+      type: "NEW_JOB_REQUEST",
+      message: "A new booking request is available for your acceptance.",
+      payload: { orderId: order.id, serviceId: order.serviceId },
+    });
+  }
 
   return {
     orderId: order.id,

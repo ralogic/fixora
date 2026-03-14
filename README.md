@@ -93,6 +93,19 @@ npm run socket:dev
 - Realtime gateway: DigitalOcean droplet or AWS ECS/Fargate
 - Database: Supabase PostgreSQL
 - For production, run socket gateway behind Nginx and set ALLOWED_ORIGINS.
+- Configure SOCKET_AUTH_TOKEN and NEXT_PUBLIC_SOCKET_AUTH_TOKEN for authenticated realtime connections.
+- Use separate secrets for DATABASE_URL, DIRECT_URL, AUTH_JWT_SECRET, OTP_SECRET, Stripe, Maps, and email provider credentials.
+- Apply Prisma migrations before switching live traffic.
+- Verify /api/health and /api/ready before marking rollout successful.
+
+## Production Hardening
+- RBAC enforced for customer, technician, and admin protected APIs
+- OTP hashing with lockout windows and rate limiting on auth endpoints
+- Password reset request/confirm APIs and email templates
+- Notification persistence, payment history, invoice, admin bookings/users/disputes APIs
+- Security headers, same-origin checks, structured logging, audit logging, and readiness endpoints
+
+See [docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md](docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md) for rollout, rollback, smoke-test, and incident drill steps.
 
 ## Seeded Demo IDs
 - Customer: demo_customer_jaipur

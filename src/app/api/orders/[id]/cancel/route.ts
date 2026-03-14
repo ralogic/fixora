@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma/client";
 import { fail, ok } from "@/lib/utils/response";
+import { AuthorizationError, requireRole } from "@/server/shared/authz";
+import { createNotification } from "@/server/modules/notifications/service";
+import { enforceSameOrigin } from "@/lib/security/csrf";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -12,6 +15,11 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function POST(request: NextRequest, context: Params) {
   try {
+    if (!enforceSameOrigin(request)) {
+      return fail("Invalid request origin", 403);
+    }
+
+    const user = await requireRole("CUSTOMER");
     const { id } = await context.params;
     const body = await request.json().catch(() => ({}));
     const reason = (body?.reason as string | undefined) ?? null;
@@ -19,6 +27,10 @@ export async function POST(request: NextRequest, context: Params) {
     const order = await prisma.order.findUnique({ where: { id } });
     if (!order) {
       return fail("Order not found", 404);
+    }
+
+    if (order.customerId !== user.id) {
+      return fail("Forbidden", 403);
     }
 
     const cancellableStatuses = ["PENDING", "PENDING_ASSIGNMENT", "ASSIGNED"];
@@ -49,8 +61,20 @@ export async function POST(request: NextRequest, context: Params) {
       return o;
     });
 
+    if (order.technicianId) {
+      await createNotification({
+        userId: order.technicianId,
+        type: "JOB_CANCELED",
+        message: "A customer canceled a job that was assigned to you.",
+        payload: { orderId: id, reason },
+      });
+    }
+
     return ok({ orderId: updated.id, status: updated.status });
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return fail(error.message, error.statusCode);
+    }
     return fail("Cancellation failed", 500, error);
   }
 }

@@ -1,16 +1,14 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma/client";
 import { fail, ok } from "@/lib/utils/response";
+import { AuthorizationError, requireRole } from "@/server/shared/authz";
 
 export async function GET(request: NextRequest) {
   try {
-    const customerId = request.nextUrl.searchParams.get("customerId");
-    if (!customerId) {
-      return fail("customerId is required", 422);
-    }
+    const user = await requireRole("CUSTOMER");
 
     const orders = await prisma.order.findMany({
-      where: { customerId },
+      where: { customerId: user.id },
       include: {
         service: true,
         technician: {
@@ -26,6 +24,9 @@ export async function GET(request: NextRequest) {
 
     return ok({ orders });
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return fail(error.message, error.statusCode);
+    }
     return fail("Unable to fetch orders", 500, error);
   }
 }

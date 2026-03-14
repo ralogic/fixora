@@ -7,11 +7,18 @@ const root = process.cwd();
 
 const requiredEnv = [
   "DATABASE_URL",
+  "DIRECT_URL",
   "AUTH_JWT_SECRET",
+  "OTP_SECRET",
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
+  "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
   "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
   "NEXT_PUBLIC_SOCKET_URL",
+  "ALLOWED_ORIGINS",
+  "SOCKET_AUTH_TOKEN",
+  "EMAIL_OTP_API_URL",
+  "EMAIL_OTP_API_KEY",
 ];
 
 const envPath = path.join(root, ".env");

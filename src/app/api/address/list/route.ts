@@ -1,11 +1,11 @@
-import { getActiveUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
 import { getPrismaConnectivityMessage } from "@/lib/utils/prisma-error";
 import { fail, ok } from "@/lib/utils/response";
+import { AuthorizationError, requireRole } from "@/server/shared/authz";
 
 export async function GET() {
   try {
-    const user = await getActiveUser();
+    const user = await requireRole("CUSTOMER");
 
     const addresses = await prisma.address.findMany({
       where: { userId: user.id },
@@ -18,6 +18,9 @@ export async function GET() {
 
     return ok({ addresses });
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return fail(error.message, error.statusCode);
+    }
     const connectivityMessage = getPrismaConnectivityMessage(error);
     if (connectivityMessage) {
       return fail(connectivityMessage, 503);

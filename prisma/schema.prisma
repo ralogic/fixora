@@ -105,6 +105,10 @@ model User {
   ratings       Rating[]           @relation("CustomerRatings")
   addresses     Address[]
   otpCodes      OtpCode[]
+  notifications Notification[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs     AuditLog[]
+  disputes      Dispute[]           @relation("DisputeRaisedBy")
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
@@ -139,6 +143,7 @@ model Technician {
   // ──────────────────────────────────────────────────────────
   serviceMappings     TechnicianService[]
   orders              Order[]              @relation("TechnicianOrders")
+  assignmentAttempts  AssignmentAttempt[]
   ratings             Rating[]             @relation("TechnicianRatings")
   documents           TechnicianDocument[]
   bankDetails         TechnicianBankDetails?
@@ -264,6 +269,8 @@ model Order {
   payment               Payment?
   rating                Rating?
   events                OrderEvent[]
+  assignmentAttempts    AssignmentAttempt[]
+  disputes              Dispute[]
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
   assignedAt            DateTime?
@@ -360,14 +367,89 @@ model Address {
 model OtpCode {
   id         String    @id @default(cuid())
   phone      String
+  purpose    String    @default("AUTH")
   code       String
   userId     String?
   user       User?     @relation(fields: [userId], references: [id])
   expiresAt  DateTime
+  lockedUntil DateTime?
   verifiedAt DateTime?
   attempts   Int       @default(0)
   createdAt  DateTime  @default(now())
 
-  @@index([phone, createdAt])
+  @@index([phone, purpose, createdAt])
   @@index([expiresAt])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  type        String
+  message     String
+  status      String    @default("UNREAD")
+  payloadJson Json?
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+model AssignmentAttempt {
+  id            String    @id @default(cuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id])
+  technicianId  String
+  technician    Technician @relation(fields: [technicianId], references: [id])
+  response      String?   // ACCEPTED | DECLINED | TIMEOUT
+  reason        String?
+  offeredAt     DateTime  @default(now())
+  respondedAt   DateTime?
+
+  @@index([orderId, offeredAt])
+  @@index([technicianId, offeredAt])
+}
+
+model Dispute {
+  id            String    @id @default(cuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id])
+  raisedByUserId String
+  raisedBy      User      @relation("DisputeRaisedBy", fields: [raisedByUserId], references: [id])
+  reason        String
+  status        String    @default("OPEN") // OPEN | IN_REVIEW | RESOLVED | CLOSED
+  resolution    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([orderId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  actorUserId String?
+  actor       User?     @relation(fields: [actorUserId], references: [id])
+  action      String
+  resource    String
+  resourceId  String?
+  detailsJson Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
 }

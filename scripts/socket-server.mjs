@@ -28,6 +28,27 @@ const PORT = process.env.SOCKET_PORT ? Number(process.env.SOCKET_PORT) : 4000;
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : ["http://localhost:3000"];
+const SOCKET_AUTH_TOKEN = process.env.SOCKET_AUTH_TOKEN ?? "";
+
+function isSocketAuthorized(socket) {
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+
+  if (!SOCKET_AUTH_TOKEN) {
+    return false;
+  }
+
+  const provided = socket.handshake.auth?.token ?? socket.handshake.query?.token;
+  return typeof provided === "string" && provided === SOCKET_AUTH_TOKEN;
+}
+
+function isRoomAllowed(room) {
+  return (
+    typeof room === "string" &&
+    (room.startsWith("order:") || room.startsWith("technician:") || room.startsWith("city_ops:"))
+  );
+}
 
 const httpServer = createServer((_req, res) => {
   res.writeHead(200, { "Content-Type": "text/plain" });
@@ -44,14 +65,29 @@ const io = new Server(httpServer, {
 });
 
 io.on("connection", (socket) => {
+  if (!isSocketAuthorized(socket)) {
+    console.warn(`[Socket] Unauthorized connection attempt: ${socket.id}`);
+    socket.disconnect(true);
+    return;
+  }
+
   console.log(`[Socket] Connected: ${socket.id}`);
 
   socket.on("room:join", (room) => {
+    if (!isRoomAllowed(room)) {
+      console.warn(`[Socket] Rejected room join for ${socket.id}: ${room}`);
+      return;
+    }
+
     void socket.join(room);
     console.log(`[Socket] ${socket.id} joined ${room}`);
   });
 
   socket.on("room:leave", (room) => {
+    if (!isRoomAllowed(room)) {
+      return;
+    }
+
     void socket.leave(room);
     console.log(`[Socket] ${socket.id} left ${room}`);
   });

@@ -63,6 +63,11 @@ export function Navbar() {
             </nav>
 
             <div className="hidden items-center gap-2 md:flex">
+              <Link href="/login">
+                <Button variant="ghost" className="h-10 px-4 text-sm">
+                  Log in
+                </Button>
+              </Link>
               <Link href="/join">
                 <Button variant="ghost" className="h-10 px-4 text-sm">
                   Become a Technician
@@ -111,6 +116,11 @@ export function Navbar() {
                 ))}
                 <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="h-11 w-full">Book a Technician</Button>
+                </Link>
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="ghost" className="h-11 w-full border border-slate-200">
+                    Log in
+                  </Button>
                 </Link>
                 <Link href="/join" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="ghost" className="h-11 w-full border border-slate-200">

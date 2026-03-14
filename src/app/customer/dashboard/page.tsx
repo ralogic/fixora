@@ -92,7 +92,7 @@ export default function CustomerDashboard() {
   useEffect(() => {
     if (!user) return;
     apiClient
-      .get<{ orders: OrderSummary[] }>(`/api/orders?customerId=${user.id}`)
+      .get<{ orders: OrderSummary[] }>("/api/orders")
       .then((d) => setOrders(d.orders))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -127,8 +127,6 @@ export default function CustomerDashboard() {
       await apiClient.post(`/api/orders/${rateOrderId}/rate`, {
         score: rateScore,
         comment: rateComment,
-        customerId: user?.id,
-        technicianId: order.technician.id,
       });
       setOrders((prev) =>
         prev.map((o) =>

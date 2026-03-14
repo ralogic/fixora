@@ -5,10 +5,15 @@ export function ok<T>(data: T, init?: ResponseInit) {
 }
 
 export function fail(message: string, status = 400, details?: unknown) {
+  const includeDetails = process.env.NODE_ENV !== "production";
+
   return NextResponse.json(
     {
       success: false,
-      error: { message, details },
+      error: {
+        message,
+        ...(includeDetails ? { details } : {}),
+      },
     },
     { status },
   );
