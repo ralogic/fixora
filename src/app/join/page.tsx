@@ -429,7 +429,7 @@ export default function JoinPage() {
           <div>
             <h1 className="text-3xl font-extrabold text-zinc-900">Application submitted!</h1>
             <p className="mt-3 max-w-sm text-zinc-500">
-              Our team will verify your documents within <strong>24-48 hours</strong>. You'll receive an SMS on{" "}
+              Our team will verify your documents within <strong>24-48 hours</strong>. You&apos;ll receive an SMS on{" "}
               <strong>{personal.phone}</strong> once approved.
             </p>
           </div>
@@ -993,7 +993,7 @@ export default function JoinPage() {
                       />
                     </div>
                     <p className="text-xs text-zinc-400">
-                      You'll receive job requests within {location.radiusKm} km of your location.
+                      You&apos;ll receive job requests within {location.radiusKm} km of your location.
                     </p>
                   </div>
 
