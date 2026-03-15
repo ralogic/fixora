@@ -24,6 +24,13 @@ export function Navbar() {
   const isAdminPortal = pathname.startsWith("/admin");
   const showCustomerControls = !isTechnicianPortal && !isJoinPage;
 
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   if (isAdminPortal) {
     return (
       <motion.header
@@ -57,13 +64,6 @@ export function Navbar() {
       </motion.header>
     );
   }
-
-  useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   if (isLandingPage) {
     return (
