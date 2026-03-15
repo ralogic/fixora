@@ -6,6 +6,8 @@ type BookingDraft = {
   preferredTechnicianId?: string;
   issueType?: string;
   issueNotes?: string;
+  preferredDate?: string;
+  preferredTime?: string;
   addressId?: string;
   citySlug?: string;
   zoneId?: string;
@@ -16,6 +18,10 @@ type BookingDraft = {
   lng?: number;
   contactName?: string;
   contactPhone?: string;
+  email?: string;
+  password?: string;
+  otp?: string;
+  otpVerified?: boolean;
   paymentMethod?: "card" | "cash";
 };
 

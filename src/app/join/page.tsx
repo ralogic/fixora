@@ -131,6 +131,12 @@ export default function JoinPage() {
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
 
   const [personal, setPersonal] = useState<PersonalForm>({
     name: "",
@@ -202,8 +208,10 @@ export default function JoinPage() {
     if (s === 1) {
       if (!personal.name.trim()) e.name = "Full name is required";
       if (!/^[6-9]\d{9}$/.test(personal.phone)) e.phone = "Enter a valid 10-digit mobile number";
-      if (personal.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email)) e.email = "Enter a valid email";
+      if (!personal.email.trim()) e.email = "Email is required";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email)) e.email = "Enter a valid email";
       if (personal.password.length < 8) e.password = "Password must be at least 8 characters";
+      if (!otpVerified) e.otp = "Verify your email with OTP to continue";
       if (!personal.city) e.city = "Select your city";
       if (!personal.area.trim()) e.area = "Enter your area";
     }
@@ -227,6 +235,100 @@ export default function JoinPage() {
       if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(banking.ifscCode.toUpperCase())) e.ifscCode = "Enter a valid IFSC code";
     }
     return e;
+  }
+
+  function parseApiResult(raw: string) {
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw) as { success?: boolean; error?: string };
+    } catch {
+      return null;
+    }
+  }
+
+  async function handleSendOtp() {
+    setOtpError(null);
+    if (!personal.email || !personal.name || personal.password.length < 8) {
+      setOtpError("Enter name, valid email, and password before requesting OTP.");
+      return;
+    }
+
+    setOtpSending(true);
+    try {
+      const response = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: personal.email,
+          role: "TECHNICIAN",
+        }),
+      });
+
+      const raw = await response.text();
+      const result = parseApiResult(raw);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error ?? "Unable to send OTP");
+      }
+
+      setOtpSent(true);
+      setOtpVerified(false);
+      setOtpError(null);
+    } catch (error) {
+      setOtpError(error instanceof Error ? error.message : "Unable to send OTP");
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    setOtpError(null);
+    if (!otp || otp.length !== 6) {
+      setOtpError("Enter the 6-digit OTP.");
+      return;
+    }
+
+    setOtpVerifying(true);
+    try {
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: personal.email,
+          otp,
+          role: "TECHNICIAN",
+          name: personal.name,
+          password: personal.password,
+        }),
+      });
+
+      const raw = await response.text();
+      const result = parseApiResult(raw);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error ?? "OTP verification failed");
+      }
+
+      setOtpVerified(true);
+      setOtpError(null);
+      setErrors((current) => {
+        const next = { ...current };
+        delete next.otp;
+        return next;
+      });
+    } catch (error) {
+      setOtpVerified(false);
+      setOtpError(error instanceof Error ? error.message : "OTP verification failed");
+    } finally {
+      setOtpVerifying(false);
+    }
   }
 
   // ΓöÇΓöÇΓöÇ File upload handler ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -278,10 +380,22 @@ export default function JoinPage() {
       if (documents.profilePhoto) formData.append("profilePhoto", documents.profilePhoto);
       if (documents.certificate) formData.append("certificate", documents.certificate);
 
-      await fetch("/api/technicians/register", { method: "POST", body: formData });
+      const response = await fetch("/api/technicians/register", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      const raw = await response.text();
+      const result = parseApiResult(raw) as { success?: boolean; error?: { message?: string } | string } | null;
+      if (!response.ok || !result?.success) {
+        const apiError = typeof result?.error === "string" ? result.error : result?.error?.message;
+        throw new Error(apiError ?? "Registration failed. Please try again.");
+      }
+
       setSubmitted(true);
-    } catch {
-      setErrors({ submit: "Registration failed. Please try again." });
+    } catch (error) {
+      setErrors({ submit: error instanceof Error ? error.message : "Registration failed. Please try again." });
     } finally {
       setLoading(false);
     }
@@ -469,7 +583,10 @@ export default function JoinPage() {
                       label="Full Name *"
                       icon={User}
                       value={personal.name}
-                      onChange={(v) => setPersonal({ ...personal, name: v })}
+                      onChange={(v) => {
+                        setPersonal({ ...personal, name: v });
+                        setOtpVerified(false);
+                      }}
                       placeholder="Rajesh Kumar"
                       error={errors.name}
                     />
@@ -483,10 +600,14 @@ export default function JoinPage() {
                       error={errors.phone}
                     />
                     <InputField
-                      label="Email Address"
+                      label="Email Address *"
                       icon={Mail}
                       value={personal.email}
-                      onChange={(v) => setPersonal({ ...personal, email: v })}
+                      onChange={(v) => {
+                        setPersonal({ ...personal, email: v });
+                        setOtpVerified(false);
+                        setOtpSent(false);
+                      }}
                       placeholder="rajesh@email.com"
                       type="email"
                       error={errors.email}
@@ -498,7 +619,10 @@ export default function JoinPage() {
                         <input
                           type={showPassword ? "text" : "password"}
                           value={personal.password}
-                          onChange={(e) => setPersonal({ ...personal, password: e.target.value })}
+                          onChange={(e) => {
+                            setPersonal({ ...personal, password: e.target.value });
+                            setOtpVerified(false);
+                          }}
                           placeholder="Min. 8 characters"
                           className={fieldCls(!!errors.password)}
                           style={{ paddingLeft: "2.5rem", paddingRight: "2.75rem" }}
@@ -537,6 +661,50 @@ export default function JoinPage() {
                       placeholder="Malviya Nagar"
                       error={errors.area}
                     />
+                  </div>
+
+                  <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                    <p className="text-sm font-semibold text-blue-800">Email verification required</p>
+                    <p className="text-xs text-blue-700">Verify your email with OTP before moving to next step.</p>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSendOtp}
+                        disabled={otpSending}
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {otpSending ? "Sending OTP..." : "Send OTP"}
+                      </button>
+                      {otpSent ? <span className="text-xs font-semibold text-emerald-700">OTP sent</span> : null}
+                      {otpVerified ? <span className="text-xs font-semibold text-emerald-700">Email verified</span> : null}
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => {
+                          setOtp(e.target.value.replace(/\D/g, ""));
+                          setOtpVerified(false);
+                        }}
+                        placeholder="Enter 6-digit OTP"
+                        className="h-11 flex-1 rounded-xl border border-blue-200 bg-white px-3 text-sm text-zinc-800 outline-none focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyOtp}
+                        disabled={otpVerifying || otp.length !== 6}
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        {otpVerifying ? "Verifying..." : "Verify OTP"}
+                      </button>
+                    </div>
+
+                    {errors.otp ? <p className="text-xs text-red-500">{errors.otp}</p> : null}
+                    {otpError ? <p className="text-xs text-red-500">{otpError}</p> : null}
                   </div>
                 </div>
               )}

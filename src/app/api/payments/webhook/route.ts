@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma/client";
 import { stripe } from "@/lib/stripe/client";
 import { fail, ok } from "@/lib/utils/response";
+import { emitOrderStatusUpdate, emitPaymentResult } from "@/lib/socket/realtime";
 
 export async function POST(request: NextRequest) {
   if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       const orderId = intent.metadata.orderId;
 
       if (orderId) {
-        await prisma.$transaction([
+        const [, order] = await prisma.$transaction([
           prisma.payment.updateMany({
             where: { stripePaymentIntentId: intent.id },
             data: {
@@ -52,6 +53,16 @@ export async function POST(request: NextRequest) {
             },
           }),
         ]);
+
+        await Promise.all([
+          emitPaymentResult({ orderId, status: "SUCCEEDED", cityId: order.cityId }),
+          emitOrderStatusUpdate({
+            orderId,
+            status: "COMPLETED",
+            cityId: order.cityId,
+            technicianId: order.technicianId,
+          }),
+        ]);
       }
     }
 
@@ -60,7 +71,7 @@ export async function POST(request: NextRequest) {
       const orderId = intent.metadata.orderId;
 
       if (orderId) {
-        await prisma.$transaction([
+        const [, order] = await prisma.$transaction([
           prisma.payment.updateMany({
             where: { stripePaymentIntentId: intent.id },
             data: { status: "FAILED" },
@@ -78,6 +89,8 @@ export async function POST(request: NextRequest) {
             },
           }),
         ]);
+
+        await emitPaymentResult({ orderId, status: "FAILED", cityId: order.cityId });
       }
     }
 

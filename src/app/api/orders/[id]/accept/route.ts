@@ -4,6 +4,7 @@ import { fail, ok } from "@/lib/utils/response";
 import { AuthorizationError, requireRole } from "@/server/shared/authz";
 import { createNotification } from "@/server/modules/notifications/service";
 import { enforceSameOrigin } from "@/lib/security/csrf";
+import { emitOrderStatusUpdate } from "@/lib/socket/realtime";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -47,6 +48,13 @@ export async function POST(request: NextRequest, context: Params) {
       type: "TECHNICIAN_ACCEPTED",
       message: "Your technician accepted the job and is preparing to travel.",
       payload: { orderId: updated.id, technicianId: user.id },
+    });
+
+    await emitOrderStatusUpdate({
+      orderId: updated.id,
+      status: updated.status,
+      cityId: order.cityId,
+      technicianId: user.id,
     });
 
     return ok({ orderId: updated.id, status: updated.status });

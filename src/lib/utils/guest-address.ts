@@ -7,6 +7,7 @@ export const LOCAL_GUEST_USER: SessionUser = {
   name: "Guest User",
   phone: "",
   email: null,
+  emailVerified: false,
   role: "CUSTOMER",
 };
 

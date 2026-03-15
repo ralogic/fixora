@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { apiClient } from "@/services/api-client/client";
+import { getSocketClient } from "@/services/socket-client/socket";
 
 type TechnicianOrder = {
   id: string;
@@ -132,9 +133,11 @@ export default function TechnicianDashboard() {
     () => false,
   );
   const [isOnline, setIsOnline] = useState(false);
+  const [currentTechnicianId, setCurrentTechnicianId] = useState<string | null>(null);
   const [orders, setOrders] = useState<TechnicianOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
+  const [syncingOnline, setSyncingOnline] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const incomingOrder = useMemo(
@@ -149,6 +152,7 @@ export default function TechnicianDashboard() {
 
   const incomingJob = incomingOrder ? toJobCard(incomingOrder) : null;
   const activeJob = activeOrder ? toJobCard(activeOrder) : null;
+  const technicianOrderRoomKey = useMemo(() => orders.map((order) => order.id).join("|"), [orders]);
 
   const today = new Date();
   const isToday = (value: string | null) => {
@@ -180,18 +184,117 @@ export default function TechnicianDashboard() {
     }
   }, []);
 
-  function toggleOnline() {
-    setIsOnline((previous) => !previous);
+  async function toggleOnline() {
+    const next = !isOnline;
+    setSyncingOnline(true);
+    try {
+      const response = await fetch("/api/technicians/me/status", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isOnline: next }),
+        cache: "no-store",
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result?.error?.message ?? "Unable to update shift status");
+      }
+
+      setIsOnline(next);
+      setError(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to update shift status");
+    } finally {
+      setSyncingOnline(false);
+    }
   }
 
   useEffect(() => {
+    let mounted = true;
+
+    async function bootstrapTechnician() {
+      try {
+        const status = await apiClient.get<{ technician: { id: string; isOnline: boolean } }>("/api/technicians/me/status");
+        if (!mounted) return;
+        setCurrentTechnicianId(status.technician.id);
+        setIsOnline(status.technician.isOnline);
+      } catch {
+        // Keep dashboard usable even if status bootstrap fails.
+      }
+    }
+
+    void bootstrapTechnician();
     void loadOrders();
     const timer = window.setInterval(() => {
       void loadOrders();
     }, 8000);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
   }, [loadOrders]);
+
+  useEffect(() => {
+    if (!currentTechnicianId) {
+      return;
+    }
+
+    const socket = getSocketClient();
+    socket.emit("room:join", `technician:${currentTechnicianId}`);
+
+    const refreshFromRealtime = () => {
+      void loadOrders();
+    };
+
+    socket.on("dispatch:offer", refreshFromRealtime);
+
+    return () => {
+      socket.emit("room:leave", `technician:${currentTechnicianId}`);
+      socket.off("dispatch:offer", refreshFromRealtime);
+    };
+  }, [currentTechnicianId, loadOrders]);
+
+  useEffect(() => {
+    if (!technicianOrderRoomKey) {
+      return;
+    }
+
+    const socket = getSocketClient();
+    const rooms = technicianOrderRoomKey
+      .split("|")
+      .filter(Boolean)
+      .map((orderId) => `order:${orderId}`);
+
+    rooms.forEach((room) => socket.emit("room:join", room));
+
+    const onOrderStatus = (payload: { orderId: string; status: OrderStatus }) => {
+      if (!payload?.orderId || !payload?.status) {
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === payload.orderId
+            ? {
+                ...order,
+                status: payload.status,
+              }
+            : order,
+        ),
+      );
+    };
+
+    socket.on("order:status", onOrderStatus);
+
+    return () => {
+      rooms.forEach((room) => socket.emit("room:leave", room));
+      socket.off("order:status", onOrderStatus);
+    };
+  }, [technicianOrderRoomKey]);
 
   async function postAction(url: string, method: "POST" | "PATCH", body: Record<string, unknown>) {
     const response = await fetch(url, {
@@ -340,11 +443,12 @@ export default function TechnicianDashboard() {
           </div>
           <button
             onClick={toggleOnline}
+            disabled={syncingOnline}
             className={`flex h-12 w-12 items-center justify-center rounded-full transition-all ${
               isOnline
                 ? "bg-emerald-500 shadow-lg shadow-emerald-500/40"
                 : "bg-zinc-700"
-            }`}
+            } ${syncingOnline ? "opacity-70" : ""}`}
           >
             <Power className="h-5 w-5 text-white" />
           </button>

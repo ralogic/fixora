@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  CUSTOMER
+  TECHNICIAN
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  ON_THE_WAY
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum OtpPurpose {
+  LOGIN
+  SIGNUP
+  PASSWORD_RESET
+  TECHNICIAN_ONBOARD
+}
+
+model User {
+  id                String         @id @default(cuid())
+  name              String
+  email             String         @unique
+  phone             String?        @unique
+  role              Role           @default(CUSTOMER)
+  passwordHash      String?
+  isSuspended       Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  customerBookings  Booking[]      @relation("CustomerBookings")
+  technicianProfile Technician?
+  sentMessages      Message[]      @relation("SentMessages")
+  receivedMessages  Message[]      @relation("ReceivedMessages")
+  notifications     Notification[]
+}
+
+model Technician {
+  id                String      @id @default(cuid())
+  userId            String      @unique
+  user              User        @relation(fields: [userId], references: [id])
+  category          String
+  experience        Int
+  rating            Float       @default(0)
+  reviewCount       Int         @default(0)
+  verified          Boolean     @default(false)
+  online            Boolean     @default(false)
+  latitude          Float?
+  longitude         Float?
+  serviceAreaKm     Int         @default(10)
+  idProofUrl        String?
+  profilePhotoUrl   String?
+  earnings          Decimal     @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  bookings          Booking[]
+
+  @@index([verified, online])
+  @@index([latitude, longitude])
+}
+
+model Booking {
+  id               String        @id @default(cuid())
+  customerId       String
+  technicianId     String
+  service          String
+  status           BookingStatus @default(PENDING)
+  date             DateTime
+  price            Decimal
+  latitude         Float
+  longitude        Float
+  addressLine      String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  customer         User          @relation("CustomerBookings", fields: [customerId], references: [id])
+  technician       Technician    @relation(fields: [technicianId], references: [id])
+  review           Review?
+  payment          Payment?
+  messages         Message[]
+  notifications    Notification[]
+
+  @@index([customerId, createdAt])
+  @@index([technicianId, status])
+  @@index([status, date])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  bookingId  String        @unique
+  amount     Decimal
+  status     PaymentStatus @default(PENDING)
+  method     String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  booking    Booking       @relation(fields: [bookingId], references: [id])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  bookingId   String
+  senderId    String
+  receiverId  String
+  message     String
+  timestamp   DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  @@index([bookingId, timestamp])
+}
+
+model OtpCode {
+  id          String     @id @default(cuid())
+  email       String
+  codeHash    String
+  purpose     OtpPurpose
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  attempts    Int        @default(0)
+  createdAt   DateTime   @default(now())
+
+  @@index([email, purpose, createdAt])
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  bookingId  String?
+  title      String
+  body       String
+  seen       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+  booking    Booking? @relation(fields: [bookingId], references: [id])
+
+  @@index([userId, seen, createdAt])
+}

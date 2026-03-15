@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { getSocketClient } from "@/services/socket-client/socket";
 
 // ─── Static data ─────────────────────────────────────────────────────────────
 const TECHNICIANS = [
@@ -45,7 +46,7 @@ const ORDER_STATUS_STYLE: Record<string, string> = {
   PENDING_ASSIGNMENT: "bg-rose-100 text-rose-700",
 };
 
-const tabs = ["Overview", "Orders", "Technicians", "Verifications", "Pricing", "Analytics"];
+const tabs = ["Overview", "Orders", "Technicians", "Verifications", "Pricing", "Analytics", "Services", "Payments", "Reviews"];
 
 const ACTIVE_ORDER_STATUSES = ["PENDING_ASSIGNMENT", "ASSIGNED", "ON_THE_WAY", "ARRIVED", "IN_PROGRESS"] as const;
 
@@ -75,6 +76,41 @@ type AdminOrder = {
   location: { landmark: string | null; addressLine: string } | null;
 };
 
+type AdminService = {
+  id: string;
+  category: string;
+  name: string;
+  basePriceInPaise: number;
+  estimatedDuration: number;
+  isActive: boolean;
+  _count?: { orders?: number; technicianMap?: number };
+};
+
+type AdminPayment = {
+  id: string;
+  orderId: string;
+  status: string;
+  amountPaise: number;
+  currency: string;
+  createdAt: string;
+  order?: {
+    service?: { name?: string | null } | null;
+    customer?: { name?: string | null } | null;
+  } | null;
+};
+
+type AdminReview = {
+  id: string;
+  score: number;
+  comment: string | null;
+  createdAt: string;
+  order: {
+    service: { name: string; category: string };
+  };
+  customer: { name: string };
+  technician: { user: { name: string } };
+};
+
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const router = useRouter();
@@ -92,6 +128,10 @@ export default function AdminDashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [techRoster, setTechRoster] = useState(TECHNICIANS);
   const [pricingSaved, setPricingSaved] = useState(false);
+  const [services, setServices] = useState<AdminService[]>([]);
+  const [payments, setPayments] = useState<AdminPayment[]>([]);
+  const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [tabLoading, setTabLoading] = useState(false);
 
   const liveOrders = useMemo(() => {
     return orders
@@ -191,6 +231,48 @@ export default function AdminDashboard() {
   }, [authLoading]);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    const socket = getSocketClient();
+    socket.emit("room:join", "city_ops:jaipur");
+
+    const onOrderStatus = (payload: { orderId: string; status: string; technicianId?: string }) => {
+      if (!payload?.orderId || !payload?.status) {
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === payload.orderId ? { ...order, status: payload.status } : order,
+        ),
+      );
+    };
+
+    const onDispatchOffer = () => {
+      // Ensure admin board catches newly created orders or reassignments.
+      void fetch("/api/orders", { cache: "no-store", credentials: "include" })
+        .then((response) => response.json())
+        .then((result) => {
+          if (result?.success) {
+            setOrders(result.data?.orders ?? []);
+          }
+        })
+        .catch(() => {});
+    };
+
+    socket.on("order:status", onOrderStatus);
+    socket.on("dispatch:offer", onDispatchOffer);
+
+    return () => {
+      socket.emit("room:leave", "city_ops:jaipur");
+      socket.off("order:status", onOrderStatus);
+      socket.off("dispatch:offer", onDispatchOffer);
+    };
+  }, [authLoading]);
+
+  useEffect(() => {
     if (!authLoading && activeTab === "Verifications") {
       setPendingLoading(true);
       fetch("/api/technicians/pending")
@@ -199,6 +281,44 @@ export default function AdminDashboard() {
         .catch(() => {})
         .finally(() => setPendingLoading(false));
     }
+  }, [activeTab, authLoading]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!["Services", "Payments", "Reviews"].includes(activeTab)) {
+      return;
+    }
+
+    setTabLoading(true);
+
+    const endpointByTab: Record<string, string> = {
+      Services: "/api/admin/services?includeInactive=1",
+      Payments: "/api/admin/payments",
+      Reviews: "/api/admin/reviews",
+    };
+
+    fetch(endpointByTab[activeTab], { cache: "no-store", credentials: "include" })
+      .then((response) => response.json())
+      .then((result) => {
+        if (!result?.success) {
+          return;
+        }
+
+        if (activeTab === "Services") {
+          setServices(result.data?.services ?? []);
+        }
+
+        if (activeTab === "Payments") {
+          setPayments(result.data?.payments ?? []);
+        }
+
+        if (activeTab === "Reviews") {
+          setReviews(result.data?.reviews ?? []);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setTabLoading(false));
   }, [activeTab, authLoading]);
 
   async function handleApprove(id: string) {
@@ -557,6 +677,124 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </Card>
+        )}
+
+        {activeTab === "Services" && (
+          <Card>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-extrabold text-zinc-900">Service catalog</h2>
+              {tabLoading ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : null}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100 text-left text-xs font-semibold uppercase text-zinc-400">
+                    <th className="pb-3 pr-4">Service</th>
+                    <th className="pb-3 pr-4">Category</th>
+                    <th className="pb-3 pr-4">Base price</th>
+                    <th className="pb-3 pr-4">Duration</th>
+                    <th className="pb-3 pr-4">Orders</th>
+                    <th className="pb-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {services.map((service) => (
+                    <tr key={service.id}>
+                      <td className="py-3 pr-4 font-semibold text-zinc-900">{service.name}</td>
+                      <td className="py-3 pr-4 text-zinc-600">{service.category}</td>
+                      <td className="py-3 pr-4 text-zinc-600">₹{Math.round(service.basePriceInPaise / 100)}</td>
+                      <td className="py-3 pr-4 text-zinc-600">{service.estimatedDuration} mins</td>
+                      <td className="py-3 pr-4 text-zinc-600">{service._count?.orders ?? 0}</td>
+                      <td className="py-3">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${service.isActive ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-500"}`}>
+                          {service.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {services.length === 0 && !tabLoading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-sm text-zinc-500">No services found.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
+        {activeTab === "Payments" && (
+          <Card>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-extrabold text-zinc-900">Payments control</h2>
+              {tabLoading ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : null}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100 text-left text-xs font-semibold uppercase text-zinc-400">
+                    <th className="pb-3 pr-4">Payment</th>
+                    <th className="pb-3 pr-4">Order</th>
+                    <th className="pb-3 pr-4">Customer</th>
+                    <th className="pb-3 pr-4">Amount</th>
+                    <th className="pb-3 pr-4">Status</th>
+                    <th className="pb-3">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {payments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td className="py-3 pr-4 font-mono text-xs text-zinc-500">{payment.id.slice(0, 12)}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{payment.orderId.slice(0, 8)}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{payment.order?.customer?.name ?? "-"}</td>
+                      <td className="py-3 pr-4 text-zinc-700">₹{Math.round(payment.amountPaise / 100)}</td>
+                      <td className="py-3 pr-4">
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-700">
+                          {payment.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-zinc-500">
+                        {new Date(payment.createdAt).toLocaleDateString("en-IN")}
+                      </td>
+                    </tr>
+                  ))}
+                  {payments.length === 0 && !tabLoading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-sm text-zinc-500">No payments found.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
+        {activeTab === "Reviews" && (
+          <Card>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-extrabold text-zinc-900">Reviews moderation</h2>
+              {tabLoading ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : null}
+            </div>
+            <div className="space-y-3">
+              {reviews.map((review) => (
+                <div key={review.id} className="rounded-xl border border-zinc-200 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-bold text-zinc-900">
+                      {review.customer.name} → {review.technician.user.name}
+                    </p>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      {"★".repeat(review.score)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-zinc-500">{review.order.service.name} · {new Date(review.createdAt).toLocaleDateString("en-IN")}</p>
+                  <p className="mt-2 text-sm text-zinc-700">{review.comment || "No comment"}</p>
+                </div>
+              ))}
+              {reviews.length === 0 && !tabLoading ? (
+                <p className="py-8 text-center text-sm text-zinc-500">No reviews found.</p>
+              ) : null}
             </div>
           </Card>
         )}

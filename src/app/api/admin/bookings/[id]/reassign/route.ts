@@ -5,6 +5,7 @@ import { fail, ok } from "@/lib/utils/response";
 import { AuthorizationError, requireRole } from "@/server/shared/authz";
 import { createNotification } from "@/server/modules/notifications/service";
 import { writeAuditLog } from "@/server/modules/admin/audit";
+import { emitDispatchOffer, emitOrderStatusUpdate } from "@/lib/socket/realtime";
 
 const bodySchema = z.object({
   technicianId: z.string().min(6),
@@ -67,6 +68,22 @@ export async function PATCH(request: NextRequest, context: Params) {
         type: "NEW_JOB_REQUEST",
         message: "A new job was assigned to you by admin dispatch.",
         payload: { orderId: updated.id },
+      }),
+    ]);
+
+    await Promise.all([
+      emitDispatchOffer({
+        orderId: updated.id,
+        technicianId,
+        serviceId: updated.serviceId,
+        cityId: updated.cityId,
+        etaMinutes: updated.estimatedEtaMinutes,
+      }),
+      emitOrderStatusUpdate({
+        orderId: updated.id,
+        status: updated.status,
+        cityId: updated.cityId,
+        technicianId: updated.technicianId,
       }),
     ]);
 

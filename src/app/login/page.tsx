@@ -27,8 +27,25 @@ async function postJSON(url: string, data: Record<string, unknown>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  const json = (await res.json()) as { success: boolean; error?: string; data?: unknown };
-  return { ok: res.ok, ...json };
+
+  let json: { success?: boolean; error?: string | { message?: string }; data?: unknown } | null = null;
+  try {
+    json = (await res.json()) as { success?: boolean; error?: string | { message?: string }; data?: unknown };
+  } catch {
+    // Some error responses can be empty or non-JSON (e.g., proxy/infra failures).
+  }
+
+  const errorMessage =
+    typeof json?.error === "string"
+      ? json.error
+      : json?.error?.message ?? (res.ok ? "Request failed" : `Request failed (${res.status})`);
+
+  return {
+    ok: res.ok && Boolean(json?.success),
+    success: Boolean(json?.success),
+    error: errorMessage,
+    data: json?.data,
+  };
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

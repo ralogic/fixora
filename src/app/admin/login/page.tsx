@@ -13,9 +13,19 @@ async function postJSON(url: string, data: Record<string, unknown>) {
     credentials: "include",
   });
 
-  const json = (await res.json()) as { success: boolean; error?: { message?: string } | string; data?: unknown };
-  const error = typeof json.error === "string" ? json.error : json.error?.message;
-  return { ok: res.ok && json.success, error, data: json.data };
+  let json: { success?: boolean; error?: { message?: string } | string; data?: unknown } | null = null;
+  try {
+    json = (await res.json()) as { success?: boolean; error?: { message?: string } | string; data?: unknown };
+  } catch {
+    // Some upstream failures can produce an empty or non-JSON body.
+  }
+
+  const error =
+    typeof json?.error === "string"
+      ? json.error
+      : json?.error?.message ?? (res.ok ? "Request failed" : `Request failed (${res.status})`);
+
+  return { ok: res.ok && Boolean(json?.success), error, data: json?.data };
 }
 
 export default function AdminLoginPage() {

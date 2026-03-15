@@ -49,6 +49,36 @@ export function BookingFlow() {
   const [technicianError, setTechnicianError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLocationSelector, setShowLocationSelector] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  function parseApiResult(raw: string) {
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw) as { success?: boolean; error?: string };
+    } catch {
+      return null;
+    }
+  }
+
+  const requiresOnboarding = !user?.emailVerified;
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    updateDraft({
+      contactName: draft.contactName ?? user.name ?? "",
+      email: draft.email ?? user.email ?? "",
+      otpVerified: Boolean(user.emailVerified),
+    });
+  }, [user, draft.contactName, draft.email, updateDraft]);
 
   useEffect(() => {
     if (!selectedAddress) {
@@ -140,15 +170,25 @@ export function BookingFlow() {
       return;
     }
 
+    if (requiresOnboarding && !draft.otpVerified) {
+      setError("Please verify your email with OTP to continue booking.");
+      setStep(5);
+      return;
+    }
+
     setLoading(true);
 
     try {
+      const preferredTime = draft.preferredDate && draft.preferredTime
+        ? new Date(`${draft.preferredDate}T${draft.preferredTime}:00`).toISOString()
+        : undefined;
+
       const result = await apiClient.post<{ orderId: string }>("/api/book-service", {
-        customerId: user.id,
         serviceId: draft.serviceId,
         preferredTechnicianId: draft.preferredTechnicianId,
         issueType: draft.issueType ?? "general",
         issueNotes: draft.issueNotes,
+        preferredTime,
         location: {
           addressLine: selectedAddress.addressLine,
           landmark: draft.landmark,
@@ -164,6 +204,85 @@ export function BookingFlow() {
       setError(requestError instanceof Error ? requestError.message : "Booking failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function sendOtp() {
+    setAuthError(null);
+
+    if (!draft.email || !draft.contactName) {
+      setAuthError("Enter name and email first.");
+      return;
+    }
+
+    setOtpSending(true);
+    try {
+      const response = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: draft.email,
+          role: "CUSTOMER",
+        }),
+      });
+
+      const raw = await response.text();
+      const result = parseApiResult(raw);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error ?? "Unable to send OTP");
+      }
+
+      setOtpSent(true);
+      setAuthError(null);
+    } catch (requestError) {
+      setAuthError(requestError instanceof Error ? requestError.message : "Unable to send OTP");
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function verifyOtpAndPassword() {
+    setAuthError(null);
+
+    if (!draft.email || !draft.otp || !draft.password || !draft.contactName) {
+      setAuthError("Name, email, password and OTP are required.");
+      return;
+    }
+
+    setOtpVerifying(true);
+    try {
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: draft.email,
+          otp: draft.otp,
+          role: "CUSTOMER",
+          name: draft.contactName,
+          password: draft.password,
+        }),
+      });
+
+      const raw = await response.text();
+      const result = parseApiResult(raw);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error ?? "OTP verification failed");
+      }
+
+      updateDraft({ otpVerified: true });
+      await refresh();
+      setAuthError(null);
+      setStep(6);
+    } catch (requestError) {
+      setAuthError(requestError instanceof Error ? requestError.message : "OTP verification failed");
+    } finally {
+      setOtpVerifying(false);
     }
   }
 
@@ -193,6 +312,27 @@ export function BookingFlow() {
             value={draft.issueNotes ?? ""}
             onChange={(event) => updateDraft({ issueNotes: event.target.value })}
           />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Preferred date</label>
+              <input
+                type="date"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3"
+                value={draft.preferredDate ?? ""}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(event) => updateDraft({ preferredDate: event.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Preferred time</label>
+              <input
+                type="time"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3"
+                value={draft.preferredTime ?? ""}
+                onChange={(event) => updateDraft({ preferredTime: event.target.value })}
+              />
+            </div>
+          </div>
           <div className="flex justify-end">
             <Button onClick={() => setStep(3)}>Continue</Button>
           </div>
@@ -302,8 +442,55 @@ export function BookingFlow() {
             value={draft.contactPhone ?? ""}
             onChange={(event) => updateDraft({ contactPhone: event.target.value })}
           />
+
+          {requiresOnboarding ? (
+            <>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                First booking security: verify your email with OTP and set your password.
+              </div>
+              <input
+                type="email"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3"
+                placeholder="Email address"
+                value={draft.email ?? ""}
+                onChange={(event) => updateDraft({ email: event.target.value, otpVerified: false })}
+              />
+              <input
+                type="password"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3"
+                placeholder="Set password (min 6 characters)"
+                value={draft.password ?? ""}
+                onChange={(event) => updateDraft({ password: event.target.value, otpVerified: false })}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={sendOtp} disabled={otpSending || !(draft.email && draft.contactName)}>
+                  {otpSending ? "Sending OTP..." : "Send OTP"}
+                </Button>
+                {otpSent ? <span className="text-xs font-semibold text-emerald-600">OTP sent to your email</span> : null}
+              </div>
+              <input
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3"
+                placeholder="Enter 6-digit OTP"
+                value={draft.otp ?? ""}
+                onChange={(event) => updateDraft({ otp: event.target.value, otpVerified: false })}
+                maxLength={6}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={verifyOtpAndPassword} disabled={otpVerifying || !(draft.otp && draft.password && draft.email)}>
+                  {otpVerifying ? "Verifying..." : "Verify email"}
+                </Button>
+                {draft.otpVerified ? <span className="text-xs font-semibold text-emerald-600">Email verified</span> : null}
+              </div>
+              {authError ? <p className="text-sm text-red-500">{authError}</p> : null}
+            </>
+          ) : (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+              Signed in as {user?.email}. You can continue.
+            </div>
+          )}
+
           <div className="flex justify-end">
-            <Button onClick={() => setStep(6)}>Continue</Button>
+            <Button onClick={() => setStep(6)} disabled={requiresOnboarding && !draft.otpVerified}>Continue</Button>
           </div>
         </Card>
       ) : null}

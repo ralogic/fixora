@@ -11,9 +11,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
 
-  const result = await response.json();
-  if (!response.ok || !result.success) {
-    throw new Error(result?.error?.message ?? "Request failed");
+  let result: { success?: boolean; data?: unknown; error?: { message?: string } | string } | null = null;
+  try {
+    result = (await response.json()) as { success?: boolean; data?: unknown; error?: { message?: string } | string };
+  } catch {
+    // Handle empty/non-JSON responses without crashing the UI.
+  }
+
+  if (!response.ok || !result?.success) {
+    const message =
+      typeof result?.error === "string"
+        ? result.error
+        : result?.error?.message ?? (response.ok ? "Request failed" : `Request failed (${response.status})`);
+    throw new Error(message);
   }
 
   return result.data as T;

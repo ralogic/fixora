@@ -7,6 +7,13 @@ import { signAuthToken } from "@/lib/auth/token";
 import { enforceSameOrigin } from "@/lib/security/csrf";
 import { getRateLimitKey, rateLimit } from "@/lib/security/rate-limit";
 
+const TEST_VERIFIED_EMAILS = new Set([
+  "admin@fixora.com",
+  "rohit@fixora.in",
+  "rahul@fixora.in",
+  "customer@fixora.com",
+]);
+
 const bodySchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
@@ -110,6 +117,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         name: user.name,
         email: user.email,
+        emailVerified: user.email ? TEST_VERIFIED_EMAILS.has(user.email.toLowerCase()) : false,
         role: user.role,
       },
       redirectTo: getRedirectPath(user.role),

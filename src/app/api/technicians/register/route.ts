@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma/client";
 import { fail, ok } from "@/lib/utils/response";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { WorkType } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { AuthorizationError, requireRole } from "@/server/shared/authz";
+import { enforceSameOrigin } from "@/lib/security/csrf";
 
 function getStorageClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -36,6 +37,12 @@ function getStorageClient() {
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!enforceSameOrigin(request)) {
+      return fail("Invalid request origin", 403);
+    }
+
+    const sessionUser = await requireRole("TECHNICIAN");
+
     const formData = await request.formData();
 
     // ─── Parse JSON fields ──────────────────────────────────────────────────
@@ -51,18 +58,46 @@ export async function POST(request: NextRequest) {
         : WorkType.HOME_SERVICE;
 
     // ─── Basic server-side validation ───────────────────────────────────────
-    if (!personal?.phone || !personal?.name || !personal?.password) {
-      return fail("name, phone, and password are required", 422);
+    if (!personal?.phone || !personal?.name || !personal?.email) {
+      return fail("name, phone, and email are required", 422);
     }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email)) {
+      return fail("Invalid email address", 422);
+    }
+
+    if (sessionUser.email?.toLowerCase() !== String(personal.email).toLowerCase()) {
+      return fail("Please verify the same email used for technician onboarding", 403);
+    }
+
     if (!/^[6-9]\d{9}$/.test(personal.phone)) {
       return fail("Invalid phone number", 422);
     }
-    if ((personal.password as string).length < 8) {
-      return fail("Password must be at least 8 characters", 422);
+
+    const verifiedOtp = await prisma.otpCode.findFirst({
+      where: {
+        userId: sessionUser.id,
+        phone: String(personal.email).toLowerCase(),
+        purpose: "TECHNICIAN_REGISTER",
+        verifiedAt: { not: null },
+      },
+      orderBy: { verifiedAt: "desc" },
+    });
+
+    if (!verifiedOtp) {
+      return fail("Please verify your email with OTP before submitting", 403);
     }
 
     // ─── Check duplicate phone ──────────────────────────────────────────────
-    const existing = await prisma.user.findUnique({ where: { phone: personal.phone } });
+    const existing = await prisma.user.findFirst({
+      where: {
+        phone: personal.phone,
+        NOT: {
+          id: sessionUser.id,
+        },
+      },
+      select: { id: true },
+    });
     if (existing) {
       return fail("A user with this phone number already exists", 409);
     }
@@ -129,26 +164,23 @@ export async function POST(request: NextRequest) {
       uploadedUrls[field] = publicData.publicUrl;
     }
 
-    // ─── Hash password ───────────────────────────────────────────────────────
-    const passwordHash = await bcrypt.hash(personal.password as string, 12);
-
     // ─── Create DB records in a transaction ─────────────────────────────────
     const result = await prisma.$transaction(async (tx) => {
-      // 1. User
-      const user = await tx.user.create({
+      // 1. User profile update (already created during OTP verification)
+      const user = await tx.user.update({
+        where: { id: sessionUser.id },
         data: {
-          role: "TECHNICIAN",
           name: personal.name as string,
           phone: personal.phone as string,
-          email: personal.email || null,
-          passwordHash,
+          email: String(personal.email).toLowerCase(),
           cityId: city!.id,
         },
       });
 
       // 2. Technician
-      const technician = await tx.technician.create({
-        data: {
+      const technician = await tx.technician.upsert({
+        where: { id: user.id },
+        create: {
           id: user.id,
           verificationStatus: "PENDING",
           serviceRadiusKm: locationData.radiusKm ?? 10,
@@ -162,11 +194,32 @@ export async function POST(request: NextRequest) {
           onboardingStep: 5,
           onboardingComplete: true,
         },
+        update: {
+          verificationStatus: "PENDING",
+          serviceRadiusKm: locationData.radiusKm ?? 10,
+          primaryCityId: city!.id,
+          experienceYears: parseInt(professional.experienceYears, 10) || 0,
+          skillsJson: professional.skills ?? [],
+          toolsAvailable: professional.toolsAvailable ?? false,
+          workType: normalizedWorkType,
+          bio: professional.bio || null,
+          profilePhotoUrl: uploadedUrls.profilePhoto ?? undefined,
+          onboardingStep: 5,
+          onboardingComplete: true,
+          rejectionNote: null,
+        },
       });
 
       // 3. TechnicianService mapping
-      await tx.technicianService.create({
-        data: { technicianId: technician.id, serviceId: service!.id },
+      await tx.technicianService.upsert({
+        where: {
+          technicianId_serviceId: {
+            technicianId: technician.id,
+            serviceId: service!.id,
+          },
+        },
+        create: { technicianId: technician.id, serviceId: service!.id },
+        update: {},
       });
 
       // 4. Documents
@@ -178,20 +231,39 @@ export async function POST(request: NextRequest) {
       };
 
       for (const [field, url] of Object.entries(uploadedUrls)) {
-        await tx.technicianDocument.create({
-          data: {
+        await tx.technicianDocument.upsert({
+          where: {
+            technicianId_type: {
+              technicianId: technician.id,
+              type: docTypeMap[field],
+            },
+          },
+          create: {
             technicianId: technician.id,
             type: docTypeMap[field],
             url,
             status: "PENDING",
           },
+          update: {
+            url,
+            status: "PENDING",
+            rejectionNote: null,
+          },
         });
       }
 
       // 5. Bank details
-      await tx.technicianBankDetails.create({
-        data: {
+      await tx.technicianBankDetails.upsert({
+        where: { technicianId: technician.id },
+        create: {
           technicianId: technician.id,
+          accountName: banking.accountName as string,
+          bankName: banking.bankName as string,
+          accountNumber: banking.accountNumber as string,
+          ifscCode: banking.ifscCode.toUpperCase() as string,
+          upiId: banking.upiId || null,
+        },
+        update: {
           accountName: banking.accountName as string,
           bankName: banking.bankName as string,
           accountNumber: banking.accountNumber as string,
@@ -211,6 +283,9 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return fail(error.message, error.statusCode);
+    }
     return fail("Registration failed", 500, error);
   }
 }

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Calendar,
@@ -25,6 +25,7 @@ import { apiClient } from "@/services/api-client/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useCustomerSession } from "@/hooks/use-customer-session";
+import { getSocketClient } from "@/services/socket-client/socket";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ const ACTIVE_STATUSES = ["PENDING", "PENDING_ASSIGNMENT", "ASSIGNED", "ON_THE_WA
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CustomerDashboard() {
-  const { user } = useCustomerSession();
+  const { user, loading: sessionLoading } = useCustomerSession({ allowGuestFallback: false });
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
@@ -97,6 +98,79 @@ export default function CustomerDashboard() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [user]);
+
+  const orderRoomKey = useMemo(() => orders.map((order) => order.id).join("|"), [orders]);
+
+  useEffect(() => {
+    if (!user || !orderRoomKey) {
+      return;
+    }
+
+    const socket = getSocketClient();
+    const rooms = orderRoomKey
+      .split("|")
+      .filter(Boolean)
+      .map((orderId) => `order:${orderId}`);
+    rooms.forEach((room) => socket.emit("room:join", room));
+
+    const onStatus = (payload: { orderId: string; status: string }) => {
+      if (!payload?.orderId || !payload?.status) {
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === payload.orderId ? { ...order, status: payload.status } : order,
+        ),
+      );
+    };
+
+    const onPayment = (payload: { orderId: string; status: string }) => {
+      if (!payload?.orderId || !payload?.status) {
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === payload.orderId
+            ? {
+                ...order,
+                paymentStatus: payload.status,
+              }
+            : order,
+        ),
+      );
+    };
+
+    socket.on("order:status", onStatus);
+    socket.on("payment:result", onPayment);
+
+    return () => {
+      rooms.forEach((room) => socket.emit("room:leave", room));
+      socket.off("order:status", onStatus);
+      socket.off("payment:result", onPayment);
+    };
+  }, [orderRoomKey, user]);
+
+  if (!sessionLoading && !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50/40 via-white to-amber-50/30 px-4 py-16">
+        <div className="mx-auto max-w-lg rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Session required</p>
+          <h1 className="mt-2 text-2xl font-extrabold text-zinc-900">Please login to view your dashboard</h1>
+          <p className="mt-2 text-sm text-zinc-500">Your order timeline and realtime updates are available after sign in.</p>
+          <div className="mt-6 flex justify-center">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-2.5 text-sm font-bold text-white"
+            >
+              Continue to login <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const activeOrders = orders.filter((o) => ACTIVE_STATUSES.includes(o.status));
   const historyOrders = orders.filter((o) => !ACTIVE_STATUSES.includes(o.status));

@@ -7,7 +7,12 @@ import type { SavedAddress, SessionUser } from "@/types/customer";
 
 const ADDRESS_KEY = "fixora_selected_address";
 
-export function useCustomerSession() {
+type CustomerSessionOptions = {
+  allowGuestFallback?: boolean;
+};
+
+export function useCustomerSession(options?: CustomerSessionOptions) {
+  const allowGuestFallback = options?.allowGuestFallback ?? true;
   const [user, setUser] = useState<SessionUser | null>(null);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddress, setSelectedAddressState] = useState<SavedAddress | null>(null);
@@ -32,22 +37,28 @@ export function useCustomerSession() {
         setSelectedAddressState(addressResult.addresses[0] ?? null);
       }
     } catch {
-      const fallbackAddresses = loadGuestAddresses();
-      setUser(LOCAL_GUEST_USER);
-      setAddresses(fallbackAddresses);
+      if (allowGuestFallback) {
+        const fallbackAddresses = loadGuestAddresses();
+        setUser(LOCAL_GUEST_USER);
+        setAddresses(fallbackAddresses);
 
-      const stored = typeof window !== "undefined" ? window.localStorage.getItem(ADDRESS_KEY) : null;
-      if (stored) {
-        const parsed = JSON.parse(stored) as SavedAddress;
-        const exists = fallbackAddresses.find((address) => address.id === parsed.id);
-        setSelectedAddressState(exists ?? fallbackAddresses[0] ?? null);
+        const stored = typeof window !== "undefined" ? window.localStorage.getItem(ADDRESS_KEY) : null;
+        if (stored) {
+          const parsed = JSON.parse(stored) as SavedAddress;
+          const exists = fallbackAddresses.find((address) => address.id === parsed.id);
+          setSelectedAddressState(exists ?? fallbackAddresses[0] ?? null);
+        } else {
+          setSelectedAddressState(fallbackAddresses[0] ?? null);
+        }
       } else {
-        setSelectedAddressState(fallbackAddresses[0] ?? null);
+        setUser(null);
+        setAddresses([]);
+        setSelectedAddressState(null);
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [allowGuestFallback]);
 
   useEffect(() => {
     refresh();

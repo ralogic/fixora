@@ -9,20 +9,90 @@ import { getSocketClient } from "@/services/socket-client/socket";
 
 const STATUSES = ["PENDING_ASSIGNMENT", "ASSIGNED", "ON_THE_WAY", "ARRIVED", "IN_PROGRESS", "COMPLETED"];
 
+type TrackerOrderResponse = {
+  order: {
+    status: string;
+    estimatedEtaMinutes: number | null;
+    location: {
+      lat: number | string;
+      lng: number | string;
+    } | null;
+    technician: {
+      id: string;
+      avgRating: number;
+      completedJobs: number;
+      currentLat: number | string | null;
+      currentLng: number | string | null;
+      user: {
+        name: string;
+        phone: string;
+      };
+    } | null;
+  };
+};
+
 export function OrderLiveTracker({ orderId }: { orderId: string }) {
   const [status, setStatus] = useState("PENDING_ASSIGNMENT");
   const [technicianLat, setTechnicianLat] = useState(26.8502);
   const [technicianLng, setTechnicianLng] = useState(75.8084);
-  const [customerLat] = useState(26.8467);
-  const [customerLng] = useState(75.8067);
+  const [customerLat, setCustomerLat] = useState(26.8467);
+  const [customerLng, setCustomerLng] = useState(75.8067);
   const [etaMinutes, setEtaMinutes] = useState(22);
-  const technicianPhone = "+919999999999";
+  const [technicianName, setTechnicianName] = useState("Fixora Technician");
+  const [technicianRating, setTechnicianRating] = useState(4.8);
+  const [technicianJobs, setTechnicianJobs] = useState(0);
+  const [technicianPhone, setTechnicianPhone] = useState("+910000000000");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function bootstrapOrder() {
+      try {
+        const response = await fetch(`/api/orders/${orderId}`, {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const result = (await response.json()) as { success?: boolean; data?: TrackerOrderResponse };
+        if (!mounted || !response.ok || !result?.success || !result.data?.order) {
+          return;
+        }
+
+        const order = result.data.order;
+        setStatus(order.status ?? "PENDING_ASSIGNMENT");
+        setEtaMinutes(order.estimatedEtaMinutes ?? 22);
+
+        if (order.location) {
+          setCustomerLat(Number(order.location.lat));
+          setCustomerLng(Number(order.location.lng));
+        }
+
+        if (order.technician) {
+          setTechnicianName(order.technician.user.name);
+          setTechnicianPhone(order.technician.user.phone);
+          setTechnicianRating(order.technician.avgRating);
+          setTechnicianJobs(order.technician.completedJobs);
+          if (order.technician.currentLat != null && order.technician.currentLng != null) {
+            setTechnicianLat(Number(order.technician.currentLat));
+            setTechnicianLng(Number(order.technician.currentLng));
+          }
+        }
+      } catch {
+        // Keep tracker usable with fallback values.
+      }
+    }
+
+    void bootstrapOrder();
+
+    return () => {
+      mounted = false;
+    };
+  }, [orderId]);
 
   useEffect(() => {
     const socket = getSocketClient();
     socket.emit("room:join", `order:${orderId}`);
 
-    socket.on("order:status", (payload: { status: string }) => {
+    socket.on("order:status", (payload: { status: string; technicianId?: string }) => {
       setStatus(payload.status);
     });
 
@@ -49,12 +119,12 @@ export function OrderLiveTracker({ orderId }: { orderId: string }) {
       <Card className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Technician</p>
-          <h2 className="text-xl font-bold text-zinc-900">Rohit Sharma</h2>
+          <h2 className="text-xl font-bold text-zinc-900">{technicianName}</h2>
           <p className="flex items-center gap-2 text-sm text-zinc-600">
             <ShieldCheck className="h-4 w-4 text-emerald-500" /> Verified pro technician
           </p>
           <p className="flex items-center gap-2 text-sm text-zinc-600">
-            <Star className="h-4 w-4 text-amber-500" /> 4.8 rating across 612 jobs
+            <Star className="h-4 w-4 text-amber-500" /> {technicianRating.toFixed(1)} rating across {technicianJobs} jobs
           </p>
         </div>
         <div className="space-y-3">

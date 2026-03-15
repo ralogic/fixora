@@ -85,8 +85,15 @@ export function LocationSelector({ open, onClose, onSaved }: Props) {
       onClose();
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "Unable to save address";
+      const normalizedMessage = message.toLowerCase();
 
-      if (message.includes("Database unavailable")) {
+      if (
+        normalizedMessage.includes("database unavailable") ||
+        normalizedMessage.includes("database is busy") ||
+        normalizedMessage.includes("authentication required") ||
+        normalizedMessage.includes("access to this resource") ||
+        normalizedMessage.includes("unable to save address")
+      ) {
         const fallbackAddress = saveGuestAddress({
           label: label as SavedAddress["label"],
           addressLine,

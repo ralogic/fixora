@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma/client";
 import { resolveZoneByCoordinates } from "@/lib/utils/zones";
 import { getPrismaConnectivityMessage } from "@/lib/utils/prisma-error";
 import { fail, ok } from "@/lib/utils/response";
-import { AuthorizationError, requireRole } from "@/server/shared/authz";
+import { getActiveUser } from "@/lib/auth/session";
 
 async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
   let lastError: unknown;
@@ -27,7 +27,13 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireRole("CUSTOMER");
+    const user = await getActiveUser();
+
+    // In degraded mode session fallback returns a local-only user id.
+    // The frontend should store address locally instead of attempting DB writes.
+    if (user.id === "guest-local") {
+      return fail("Authentication required", 401);
+    }
 
     const body = (await request.json()) as {
       label?: string;
@@ -92,9 +98,6 @@ export async function POST(request: NextRequest) {
       zoneConfidence: zoneResolution.confidence,
     });
   } catch (error) {
-    if (error instanceof AuthorizationError) {
-      return fail(error.message, error.statusCode);
-    }
     const connectivityMessage = getPrismaConnectivityMessage(error);
     if (connectivityMessage) {
       return fail(connectivityMessage, 503);

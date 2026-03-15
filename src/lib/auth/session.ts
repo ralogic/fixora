@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma/client";
 import { verifyAuthToken } from "@/lib/auth/token";
+import { getPrismaConnectivityMessage } from "@/lib/utils/prisma-error";
 
 export const AUTH_COOKIE_NAME = "fixora_access_token";
 const GUEST_USER_COOKIE_NAME = "fixora_guest_user_id";
@@ -24,13 +25,19 @@ export async function getOrCreateGuestUser() {
   const guestUserId = cookieStore.get(GUEST_USER_COOKIE_NAME)?.value;
 
   if (guestUserId) {
-    const existingGuest = await prisma.user.findUnique({
-      where: { id: guestUserId },
-      select: sessionUserSelect,
-    });
+    try {
+      const existingGuest = await prisma.user.findUnique({
+        where: { id: guestUserId },
+        select: sessionUserSelect,
+      });
 
-    if (existingGuest) {
-      return existingGuest;
+      if (existingGuest) {
+        return existingGuest;
+      }
+    } catch (error) {
+      if (!getPrismaConnectivityMessage(error)) {
+        throw error;
+      }
     }
   }
 
@@ -54,12 +61,24 @@ export async function getOrCreateGuestUser() {
       });
 
       return createdGuest;
-    } catch {
+    } catch (error) {
+      if (getPrismaConnectivityMessage(error)) {
+        break;
+      }
+
       // Retry in the rare case of random phone collision.
     }
   }
 
-  throw new Error("Unable to initialize guest session");
+  return {
+    id: "guest-local",
+    name: "Guest User",
+    phone: "",
+    email: null,
+    role: "CUSTOMER" as const,
+    cityId: null,
+    city: null,
+  };
 }
 
 export async function getSessionUser() {
@@ -75,10 +94,18 @@ export async function getSessionUser() {
     return null;
   }
 
-  return prisma.user.findUnique({
-    where: { id: payload.userId },
-    select: sessionUserSelect,
-  });
+  try {
+    return await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: sessionUserSelect,
+    });
+  } catch (error) {
+    if (getPrismaConnectivityMessage(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function getActiveUser() {

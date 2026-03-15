@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma/client";
 import type { BookingCreationResult, BookingRequest } from "@/types/domain";
 import { getRankedTechnicianCandidates, pickDispatchCandidate } from "@/server/modules/technicians/search";
 import { createNotification } from "@/server/modules/notifications/service";
+import { emitDispatchOffer, emitOrderStatusUpdate } from "@/lib/socket/realtime";
 
 export class BookingCreationError extends Error {
   constructor(
@@ -120,7 +121,22 @@ export async function createBooking(input: BookingRequest): Promise<BookingCreat
       message: "A new booking request is available for your acceptance.",
       payload: { orderId: order.id, serviceId: order.serviceId },
     });
+
+    await emitDispatchOffer({
+      orderId: order.id,
+      technicianId: selectedCandidate.technicianId,
+      serviceId: order.serviceId,
+      cityId: order.cityId,
+      etaMinutes: order.estimatedEtaMinutes,
+    });
   }
+
+  await emitOrderStatusUpdate({
+    orderId: order.id,
+    status: order.status,
+    cityId: order.cityId,
+    technicianId: order.technicianId,
+  });
 
   return {
     orderId: order.id,

@@ -10,7 +10,7 @@ export const locationSchema = z.object({
 });
 
 export const bookServiceSchema = z.object({
-  customerId: z.string().min(6),
+  customerId: z.string().min(6).optional(),
   serviceId: z.string().min(6),
   preferredTechnicianId: z.string().min(6).optional(),
   issueType: z.string().min(2),

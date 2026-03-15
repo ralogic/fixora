@@ -11,6 +11,7 @@ import {
   OrderStatusTransitionError,
 } from "@/server/modules/bookings/status-machine";
 import { createNotification } from "@/server/modules/notifications/service";
+import { emitOrderStatusUpdate } from "@/lib/socket/realtime";
 
 const schema = z.object({
   status: z.enum(["PENDING", "PENDING_ASSIGNMENT", "ASSIGNED", "ON_THE_WAY", "ARRIVED", "IN_PROGRESS", "COMPLETED", "CANCELED"]),
@@ -73,6 +74,13 @@ export async function PATCH(request: NextRequest, context: Params) {
       type: "ORDER_STATUS_UPDATED",
       message: `Your booking status is now ${nextStatus}.`,
       payload: { orderId: updated.id, status: nextStatus },
+    });
+
+    await emitOrderStatusUpdate({
+      orderId: updated.id,
+      status: updated.status,
+      cityId: order.cityId,
+      technicianId: order.technicianId,
     });
 
     return ok({ orderId: updated.id, status: updated.status });
