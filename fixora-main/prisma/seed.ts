@@ -13,6 +13,7 @@ async function main() {
     create: {
       name: "Fixora Admin",
       email: "admin@fixora.app",
+      phone: "9000011111",
       role: "ADMIN",
       passwordHash: adminPasswordHash,
     },
@@ -24,6 +25,7 @@ async function main() {
     create: {
       name: "Demo Customer",
       email: "customer@fixora.app",
+      phone: "9000011112",
       role: "CUSTOMER",
       passwordHash: customerPasswordHash,
     },
@@ -35,6 +37,7 @@ async function main() {
     create: {
       name: "Demo Technician",
       email: "tech@fixora.app",
+      phone: "9000011113",
       role: "TECHNICIAN",
       passwordHash: customerPasswordHash,
     },
